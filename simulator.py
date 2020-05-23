@@ -10,6 +10,7 @@ import numpy as np
 from matplotlib.animation import FuncAnimation
 import math
 import time
+import copy
 
 from car import Car
 from lane import Lane
@@ -132,6 +133,24 @@ def animate(time):
       # remove arrived cars from the list
       if car.goal_arrived == True:
         cars_list.remove( car )
+
+      # TODO: if the car encounters road closure, it U-turns.
+      if edges_cars_dic[(x_new,y_new)].current_speed == 0:
+        for i in range(len(edge_lanes_list) - 1):
+          for j in range(i + 1, len(edge_lanes_list)):
+            lane1 = edge_lanes_list[i]
+            lane2 = edge_lanes_list[j]
+        lane1.current_end_node_id = lane2.current_start_node_id
+        x_new, y_new = car.move(DG, edges_cars_dic, sensitivity)
+        xdata.append(x_new)
+        ydata.append(y_new)
+        DG_copied = copy.deepcopy(DG)
+        DG_copied.remove_edge(lane1)
+        # 車線変更のタイミングでカウンターを1増やす
+        time += 1
+        # 最短経路を再計算する
+        shortest_path = nx.dijkstra_path(DG_copied, origin_node_id, destination_node_id)
+
     elif car.__class__.__name__ == 'Obstacle':
       print("Obstacle #%d instance is called, skip!!!" % (car.obstacle_node_id))
 
@@ -142,7 +161,7 @@ def animate(time):
     obstacle_x.append(x_new)
     obstacle_y.append(y_new)
 
-    # TODO: if the car encounters road closure, it U-turns.
+
 
 
 
@@ -170,16 +189,16 @@ def U_turn(DG,edge_lane_list,time):
   # cars_listのクラスがCarかつ、speedが0になれば、対向車線に変更し、
   for car in cars_list:
     if car.__class__.__name__ == " Car" and edges_cars_dic[(origin_node_id,destination_node_id)].currnt_speed  == 0:
-      print(lane1)
       lane1 = lane2
       #現在位置の更新をcar.pyにて行う(end_node = lane2のstart_node, position = lane2のstart_node)
       x_new,y_new = car.U_turn(DG,edges_cars_dic)
       #障害物のあるedgeを削除
-      DG.remove_edge(lane1)
+      DG_copied = copy.deepcopy(DG)
+      DG_copied.remove_edge(lane1)
       #車線変更のタイミングでカウンターを1増やす
       time += 1
       #最短経路を再計算する
-      shortest_path = nx.dijkstra_path(DG, origin_node_id, destination_node_id)
+      shortest_path = nx.dijkstra_path(DG_copied, origin_node_id, destination_node_id)
   return 
 
 ##### main #####
