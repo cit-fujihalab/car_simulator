@@ -9,11 +9,12 @@ import networkx as nx
 import numpy as np
 from matplotlib.animation import FuncAnimation
 import math
+import time
 
 from car import Car
-from obstacle import Obstacle
 from lane import Lane
 from road_segment import RoadSegment
+from obstacle import Obstacle
 
 # simulation settings
 infilename = "grid3x3.net.xml" 
@@ -21,11 +22,12 @@ infilename = "grid3x3.net.xml"
 #infilename = "tsudanuma.net.xml"
 
 #number_of_cars = 1000
-number_of_cars = 20
+number_of_cars = 50
 #number_of_cars = 5
 
-#sensitivity = 1.0
-sensitivity = 0.1
+number_of_obstacles = 20
+
+sensitivity = 1.0
 
 
 # functions
@@ -110,48 +112,75 @@ def draw_road_network(DG):
 
 # For initializing animation settings
 def init():
-  line.set_data([], [])
+  line1.set_data([], [])
+  line2.set_data([], [])
   title.set_text("Simulation step: 0")
-  return line, title, 
+  return line1, line2, title,
 
 # main of animation update
 def animate(time):
-  global xdata, ydata
+  global xdata,ydata,obstacle_x,obstacle_y
 
   xdata = []; ydata=[]
 
   for car in cars_list:
-    if car.__class__.__name__ == "Car":
-      x_new, y_new, goal_arrived_flag = car.move(DG, edges_cars_dic, sensitivity) 
+    if car.__class__.__name__ == 'Car':
+      x_new, y_new, goal_arrived_flag = car.move(DG, edges_cars_dic, sensitivity)
       # update x_new and y_new
       xdata.append(x_new)
       ydata.append(y_new)
       # remove arrived cars from the list
       if car.goal_arrived == True:
         cars_list.remove( car )
-    elif car.__class__.__name__ == "Obstacle":
-      print("Obstacle #%d instance is called, skip!!!" %(car.obstacle_node_id) )
-  
+    elif car.__class__.__name__ == 'Obstacle':
+      print("Obstacle #%d instance is called, skip!!!" % (car.obstacle_node_id))
+
+  obstacle_x = []; obstacle_y = []
+
+  for obstacle in obstacles_list:
+    x_new,y_new = obstacle.move(DG,edges_obstacles_dic,sensitivity)
+    obstacle_x.append(x_new)
+    obstacle_y.append(y_new)
+
     # TODO: if the car encounters road closure, it U-turns.
 
 
 
   # check if all the cars arrive at their destinations
-  if len(cars_list) == 0:
+  if len(cars_list)-number_of_obstacles == 0:
     print("Total simulation step: "+str(time-1))
     print("### End of simulation ###")
     sys.exit(0) # end of simulation, exit.
 
-  line.set_data(xdata, ydata)
-  title.set_text("Simulation step: "+str(time)+";  # of cars: "+str(len(cars_list)))
+  line1.set_data(xdata, ydata)
+  line2.set_data(obstacle_x,obstacle_y)
+  title.set_text("Simulation step: "+str(time)+";  # of cars: "+str(len(cars_list)-number_of_obstacles))
 
-  return line, title, 
-
-
+  return line1,line2,title,
+      
 # Optimal Velocity Function
 def V(b, current_max_speed):
   return 0.5*current_max_speed*(np.tanh(b-2) + np.tanh(2))
 
+
+def U_turn(DG,edge_lane_list,time):
+  for i in range(len(edge_lanes_list) - 1):
+    for j in range(i + 1, len(edge_lanes_list)):
+      lane1, lane2 = RoadSegment(edge_lanes_list[i], edge_lanes_list[j])
+  # cars_listのクラスがCarかつ、speedが0になれば、対向車線に変更し、
+  for car in cars_list:
+    if car.__class__.__name__ == " Car" and edges_cars_dic[(origin_node_id,destination_node_id)].currnt_speed  == 0:
+      print(lane1)
+      lane1 = lane2
+      #現在位置の更新をcar.pyにて行う(end_node = lane2のstart_node, position = lane2のstart_node)
+      x_new,y_new = car.U_turn(DG,edges_cars_dic)
+      #障害物のあるedgeを削除
+      DG.remove_edge(lane1)
+      #車線変更のタイミングでカウンターを1増やす
+      time += 1
+      #最短経路を再計算する
+      shortest_path = nx.dijkstra_path(DG, origin_node_id, destination_node_id)
+  return 
 
 ##### main #####
 if __name__ == "__main__":
@@ -169,20 +198,30 @@ if __name__ == "__main__":
   # create cars
   edges_all_list = DG.edges()
   edges_cars_dic = {}
+  edges_obstacles_dic = {}
   for item in edges_all_list:
+    edges_obstacles_dic[item] = []
     edges_cars_dic[ item ] = []
-
+  obstacles_list = []
   cars_list = []
-  # 10 obstacles
-  for i in range(10):
-    origin_lane_id, destination_lane_id = select_OD_lanes()
-    origin_node_id, destination_node_id = find_OD_node_ids(origin_lane_id, destination_lane_id)
+
+  # create obstacles
+  # edges_all_list = DG.edges()
+  for i in range(number_of_obstacles):
+    # randomly select obstacles lanes
+    origin_lane_id,destination_lane_id = select_OD_lanes()
+
+    # find obstacle node id
+    origin_node_id,destination_node_id = find_OD_node_ids(origin_lane_id, destination_lane_id)
+
     obstacle = Obstacle(origin_node_id, destination_node_id, origin_lane_id, i)
     obstacle.init(DG)
+    obstacles_list.append(obstacle)
     cars_list.append(obstacle)
-    edges_cars_dic[ ( edge_lanes_list[origin_lane_id].node_id_list[0], edge_lanes_list[origin_lane_id].node_id_list[1] ) ].append( obstacle )
+    edges_obstacles_dic[(edge_lanes_list[origin_lane_id].node_id_list[0], edge_lanes_list[origin_lane_id].node_id_list[1])].append(obstacle)
+    edges_cars_dic[(edge_lanes_list[origin_lane_id].node_id_list[0], edge_lanes_list[origin_lane_id].node_id_list[1])].append(obstacle)
 
-  for i in range(len(edge_lanes_list)):
+  for i in range(number_of_cars):
     # randomly select Orign and Destination lanes (O&D are different)
     origin_lane_id, destination_lane_id = select_OD_lanes()
   
@@ -197,7 +236,12 @@ if __name__ == "__main__":
     car.init(DG) # initialization of car settings
     cars_list.append(car)
     edges_cars_dic[ ( edge_lanes_list[origin_lane_id].node_id_list[0], edge_lanes_list[origin_lane_id].node_id_list[1] ) ].append( car )
-  
+
+  #U-turn
+    #shortest_path = nx.dijkstra_path(DG, origin_node_id, destination_node_id)
+    print(road_segments_list)
+
+
   
   # animation initial settings
   fig, ax = plt.subplots()
@@ -205,7 +249,13 @@ if __name__ == "__main__":
   for i in range(len(cars_list)):
     xdata.append( cars_list[i].current_position[0] )
     ydata.append( cars_list[i].current_position[1] )
-  line, = plt.plot([], [], color="green", marker="s", linestyle="", markersize=10)
+  obstacle_x = [];obstacle_y = []
+  for i in range(len(obstacles_list)):
+    obstacle_x.append(obstacles_list[i].current_position[0])
+    obstacle_y.append(obstacles_list[i].current_position[1])
+
+  line1, = plt.plot([], [], color="green", marker="s", linestyle="", markersize=3)
+  line2, = plt.plot([], [], color="red", marker="s", linestyle="", markersize=5)
   title = ax.text(20.0, -20.0, "", va="center")
   
   # draw road network

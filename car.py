@@ -4,15 +4,16 @@ import math
 
 class Car:
   def __init__(self, orig_node_id, dest_node_id, shortest_path, current_lane_id):
-    self.orig_node_id  = orig_node_id
-    self.dest_node_id  = dest_node_id
-    self.shortest_path = shortest_path
-    self.current_lane_id =  current_lane_id
+    self.orig_node_id  = orig_node_id #起点
+    self.dest_node_id  = dest_node_id #終点
+    self.shortest_path = shortest_path #最短経路
+    self.current_lane_id =  current_lane_id #現在のレーン
     self.current_sp_index = 0
     self.current_speed = 0.0
     self.current_start_node = []
     self.current_position = []
     self.current_end_node = []
+    self.found_obstacles = []
     self.current_distance = 0.0
     self.goal_arrived = False
 
@@ -85,6 +86,7 @@ class Car:
         car_forward_index = edges_cars_dic[ (current_start_node_id, current_end_node_id) ].index( self ) - 1
         car_forward_pt = edges_cars_dic[ (current_start_node_id, current_end_node_id) ][ car_forward_index ]
         diff_dist = np.sqrt( (car_forward_pt.current_position[0] - self.current_position[0])**2 + (car_forward_pt.current_position[1] - self.current_position[1])**2 )
+
       else:
         diff_dist = 50.0
       print(self, diff_dist)
@@ -92,3 +94,21 @@ class Car:
 
     return x_new, y_new, self.goal_arrived
 
+  def U_turn(self,DG,edges_cars_dic):
+    x_new = self.current_end_node[0]
+    y_new = self.current_end_node[1]
+
+    current_start_node_id = self.shortest_path[self.current_sp_index - 1]
+    current_end_node_id = self.shortest_path[self.current_sp_index]
+    edges_cars_dic[(current_start_node_id, current_end_node_id)].remove(self)
+
+    current_start_node_id = self.shortest_path[self.current_sp_index]
+    self.current_start_node = DG.nodes[current_start_node_id]["pos"]
+    self.current_position = DG.nodes[current_start_node_id]["pos"]
+    current_end_node_id = self.shortest_path[self.current_sp_index + 1]
+    self.current_end_node = DG.nodes[current_end_node_id]["pos"]
+    current_edge_attributes = DG.get_edge_data(current_start_node_id, current_end_node_id)
+    self.current_max_speed = current_edge_attributes["speed"]
+    self.current_distance = current_edge_attributes["weight"]
+    edges_cars_dic[(current_start_node_id, current_end_node_id)].append(self)
+    return x_new, y_new
