@@ -121,14 +121,17 @@ def animate(time):
   xdata = []; ydata=[]
 
   for car in cars_list:
-    x_new, y_new, goal_arrived_flag = car.move(DG, edges_cars_dic, sensitivity) 
-    # update x_new and y_new
-    xdata.append(x_new)
-    ydata.append(y_new)
-    # remove arrived cars from the list
-    if car.goal_arrived == True:
-      cars_list.remove( car )
-
+    if car.__class__.__name__ == "Car":
+      x_new, y_new, goal_arrived_flag = car.move(DG, edges_cars_dic, sensitivity) 
+      # update x_new and y_new
+      xdata.append(x_new)
+      ydata.append(y_new)
+      # remove arrived cars from the list
+      if car.goal_arrived == True:
+        cars_list.remove( car )
+    elif car.__class__.__name__ == "Obstacle":
+      print("Obstacle #%d instance is called, skip!!!" %(car.obstacle_node_id) )
+  
     # TODO: if the car encounters road closure, it U-turns.
 
 
@@ -170,16 +173,13 @@ if __name__ == "__main__":
     edges_cars_dic[ item ] = []
 
   cars_list = []
-  obstacles_list = []
   # 10 obstacles
   for i in range(10):
     origin_lane_id, destination_lane_id = select_OD_lanes()
     origin_node_id, destination_node_id = find_OD_node_ids(origin_lane_id, destination_lane_id)
-    shortest_path = nx.dijkstra_path(DG, origin_node_id, destination_node_id)
-    obstacle = Obstacle(origin_node_id, destination_node_id, shortest_path, origin_lane_id)
+    obstacle = Obstacle(origin_node_id, destination_node_id, origin_lane_id, i)
     obstacle.init(DG)
     cars_list.append(obstacle)
-    obstacles_list.append(obstacle)
     edges_cars_dic[ ( edge_lanes_list[origin_lane_id].node_id_list[0], edge_lanes_list[origin_lane_id].node_id_list[1] ) ].append( obstacle )
 
   for i in range(len(edge_lanes_list)):
