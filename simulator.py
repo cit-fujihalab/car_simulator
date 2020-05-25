@@ -130,17 +130,18 @@ def animate(time):
       # update x_new and y_new
       xdata.append(x_new)
       ydata.append(y_new)
+
       # remove arrived cars from the list
       if car.goal_arrived == True:
         cars_list.remove( car )
 
       # TODO: if the car encounters road closure, it U-turns.
-      if edges_cars_dic[(x_new,y_new)].current_speed == 0:
+      if edges_cars_dic[(edge_lanes_list[origin_lane_id].node_id_list[0],edge_lanes_list[origin_lane_id].node_id_list[1])].current_speed <= 1.0:
         for i in range(len(edge_lanes_list) - 1):
           for j in range(i + 1, len(edge_lanes_list)):
             lane1 = edge_lanes_list[i]
             lane2 = edge_lanes_list[j]
-        lane1.current_end_node_id = lane2.current_start_node_id
+        lane1.edge_lanes_list[origin_lane_id].node_id_list[0] = lane2.edge_lanes_list[origin_lane_id].node_id_list[1]
         x_new, y_new = car.move(DG, edges_cars_dic, sensitivity)
         xdata.append(x_new)
         ydata.append(y_new)
@@ -181,26 +182,6 @@ def animate(time):
 def V(b, current_max_speed):
   return 0.5*current_max_speed*(np.tanh(b-2) + np.tanh(2))
 
-
-def U_turn(DG,edge_lane_list,time):
-  for i in range(len(edge_lanes_list) - 1):
-    for j in range(i + 1, len(edge_lanes_list)):
-      lane1, lane2 = RoadSegment(edge_lanes_list[i], edge_lanes_list[j])
-  # cars_listのクラスがCarかつ、speedが0になれば、対向車線に変更し、
-  for car in cars_list:
-    if car.__class__.__name__ == " Car" and edges_cars_dic[(origin_node_id,destination_node_id)].currnt_speed  == 0:
-      lane1 = lane2
-      #現在位置の更新をcar.pyにて行う(end_node = lane2のstart_node, position = lane2のstart_node)
-      x_new,y_new = car.U_turn(DG,edges_cars_dic)
-      #障害物のあるedgeを削除
-      DG_copied = copy.deepcopy(DG)
-      DG_copied.remove_edge(lane1)
-      #車線変更のタイミングでカウンターを1増やす
-      time += 1
-      #最短経路を再計算する
-      shortest_path = nx.dijkstra_path(DG_copied, origin_node_id, destination_node_id)
-  return 
-
 ##### main #####
 if __name__ == "__main__":
   # root: xml tree of input file 
@@ -239,6 +220,7 @@ if __name__ == "__main__":
     cars_list.append(obstacle)
     edges_obstacles_dic[(edge_lanes_list[origin_lane_id].node_id_list[0], edge_lanes_list[origin_lane_id].node_id_list[1])].append(obstacle)
     edges_cars_dic[(edge_lanes_list[origin_lane_id].node_id_list[0], edge_lanes_list[origin_lane_id].node_id_list[1])].append(obstacle)
+    print(edges_cars_dic)
 
   for i in range(number_of_cars):
     # randomly select Orign and Destination lanes (O&D are different)
@@ -255,12 +237,6 @@ if __name__ == "__main__":
     car.init(DG) # initialization of car settings
     cars_list.append(car)
     edges_cars_dic[ ( edge_lanes_list[origin_lane_id].node_id_list[0], edge_lanes_list[origin_lane_id].node_id_list[1] ) ].append( car )
-
-  #U-turn
-    #shortest_path = nx.dijkstra_path(DG, origin_node_id, destination_node_id)
-    print(road_segments_list)
-
-
   
   # animation initial settings
   fig, ax = plt.subplots()
