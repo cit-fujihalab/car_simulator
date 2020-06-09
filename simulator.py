@@ -25,10 +25,10 @@ infilename = "grid3x3.net.xml"
 #infilename = "tsudanuma.net.xml"
 
 #number_of_cars = 1000
-number_of_cars = 50
+number_of_cars = 10
 #number_of_cars = 5
 number_of_fires = 1
-number_of_obstacles = 20
+number_of_obstacles = 50
 
 sensitivity = 1.0
 
@@ -141,25 +141,29 @@ def animate(time):
         goal_time_list.append(time)
 
       # TODO: if the car encounters road closure, it U-turns.
-      if car.current_speed <= 0.0 :
+      if car.current_speed <= 1.0:
         for i in range(len(edge_lanes_list) - 1):
           for j in range(i + 1, len(edge_lanes_list)):
             lane1 = edge_lanes_list[i]
             lane2 = edge_lanes_list[j]
-        #車線変更
-        car.current_end_node = car.current_start_node
-        #DGをコピー
+        # DGをコピー
         DG_copied = copy.deepcopy(DG)
-        #DG_copied.remove_edge(lane1,lane2)
+        #車線変更とedgeの削除
+        if car.current_lane_id == lane1:
+          lane1 = lane2
+          #DG_copied.remove_edge(lane1)
+        else:
+          lane2 = lane1
+          #DG_copied.remove_edge(lane2)
         #x,yを更新
         x_new, y_new = car.U_turn(DG_copied, edges_cars_dic, sensitivity)
         xdata.append(x_new)
         ydata.append(y_new)
-
         # 車線変更のタイミングでカウンターを1増やす
         time += 1
         # 最短経路を再計算する
         shortest_path = nx.dijkstra_path(DG_copied, origin_node_id, destination_node_id)
+        #print(shortest_path)
 
     elif car.__class__.__name__ == 'Obstacle':
       print("Obstacle #%d instance is called, skip!!!" % (car.obstacle_node_id))
@@ -172,6 +176,7 @@ def animate(time):
     obstacle_x.append(x_new)
     obstacle_y.append(y_new)
 
+  #fire
   fire_x = [];fire_y = []
   for fire in fires_list:
     x_new, y_new = fire.move(DG, edges_fires_dic, sensitivity)
@@ -179,7 +184,7 @@ def animate(time):
     fire_y.append(y_new)
 
   # check if all the cars arrive at their destinations
-  if len(cars_list)-number_of_obstacles == 0:
+  if len(cars_list)-number_of_obstacles - number_of_fires == 0:
     print("Total simulation step: "+str(time-1))
     print("### End of simulation ###")
     sys.exit(0) # end of simulation, exit.
@@ -187,7 +192,7 @@ def animate(time):
   line1.set_data(xdata, ydata)
   line2.set_data(obstacle_x,obstacle_y)
   line3.set_data(fire_x, fire_y)
-  title.set_text("Simulation step: "+str(time)+";  # of cars: "+str(len(cars_list)-number_of_obstacles))
+  title.set_text("Simulation step: " + str(time) + ";  # of cars: " + str(len(cars_list) - number_of_obstacles - number_of_fires))
 
   return line1, line2, line3, title,
       
@@ -213,13 +218,16 @@ if __name__ == "__main__":
   edges_cars_dic = {}
   edges_obstacles_dic = {}
   edges_fires_dic = {}
+
   for item in edges_all_list:
     edges_obstacles_dic[ item ] = []
     edges_cars_dic[ item ] = []
     edges_fires_dic[ item ] = []
+
   obstacles_list = []
   cars_list = []
   fires_list = []
+
 
   # create obstacles
   # edges_all_list = DG.edges()
@@ -251,7 +259,6 @@ if __name__ == "__main__":
     edges_fires_dic[(edge_lanes_list[origin_lane_id].node_id_list[0], edge_lanes_list[origin_lane_id].node_id_list[1])].append(fire)
     edges_cars_dic[(edge_lanes_list[origin_lane_id].node_id_list[0], edge_lanes_list[origin_lane_id].node_id_list[1])].append(fire)
 
-
   for i in range(number_of_cars):
     # randomly select Orign and Destination lanes (O&D are different)
     origin_lane_id, destination_lane_id = select_OD_lanes()
@@ -262,6 +269,7 @@ if __name__ == "__main__":
     # calculate a shortest path to go
     # Reference: https://networkx.github.io/documentation/latest/reference/algorithms/generated/networkx.algorithms.shortest_paths.weighted.dijkstra_path.html
     shortest_path = nx.dijkstra_path(DG, origin_node_id, destination_node_id)
+    #print(shortest_path)
   
     car = Car(origin_node_id, destination_node_id, shortest_path, origin_lane_id)
     car.init(DG) # initialization of car settings
@@ -278,7 +286,7 @@ if __name__ == "__main__":
   for i in range(len(obstacles_list)):
     obstacle_x.append(obstacles_list[i].current_position[0])
     obstacle_y.append(obstacles_list[i].current_position[1])
-  fire_x = []; fire_y = []
+  fire_x = [];fire_y = []
   for i in range(len(fires_list)):
     fire_x.append(fires_list[i].current_position[0])
     fire_y.append(fires_list[i].current_position[1])
