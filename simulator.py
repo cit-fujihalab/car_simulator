@@ -25,10 +25,10 @@ infilename = "grid3x3.net.xml"
 #infilename = "tsudanuma.net.xml"
 
 #number_of_cars = 1000
-number_of_cars = 10
+number_of_cars = 20
 #number_of_cars = 5
-number_of_fires = 1
-number_of_obstacles = 50
+#number_of_fires = 1
+number_of_obstacles = 5
 
 sensitivity = 1.0
 
@@ -117,13 +117,12 @@ def draw_road_network(DG):
 def init():
   line1.set_data([], [])
   line2.set_data([], [])
-  line3.set_data([], [])
   title.set_text("Simulation step: 0")
-  return line1, line2, line3, title,
+  return line1, line2, title,
 
 # main of animation update
 def animate(time):
-  global xdata,ydata,obstacle_x,obstacle_y,fire_x,fire_y
+  global xdata,ydata,obstacle_x,obstacle_y
   goal_time_list = []
 
   xdata = []; ydata=[]
@@ -141,34 +140,28 @@ def animate(time):
         goal_time_list.append(time)
 
       # TODO: if the car encounters road closure, it U-turns.
-      if car.current_speed <= 1.0:
+      if edges_cars_dic[(edge_lanes_list[origin_lane_id].node_id_list[0], edge_lanes_list[origin_lane_id].node_id_list[1])].__class__.__name__ == "Obstacle":
+        # DGをコピー
+        DG_copied = copy.deepcopy(DG)
+
         for i in range(len(edge_lanes_list) - 1):
           for j in range(i + 1, len(edge_lanes_list)):
             lane1 = edge_lanes_list[i]
             lane2 = edge_lanes_list[j]
-        # DGをコピー
-        DG_copied = copy.deepcopy(DG)
+
         #車線変更とedgeの削除
         if car.current_lane_id == lane1:
           lane1 = lane2
-          #DG_copied.remove_edge(lane1)
+          x_new, y_new = car.U_turn(DG_copied, edges_cars_dic, sensitivity)
+
         else:
           lane2 = lane1
-          #DG_copied.remove_edge(lane2)
-        #x,yを更新
-        x_new, y_new = car.U_turn(DG_copied, edges_cars_dic, sensitivity)
+          x_new, y_new = car.U_turn(DG_copied, edges_cars_dic, sensitivity)
         xdata.append(x_new)
         ydata.append(y_new)
-        # 車線変更のタイミングでカウンターを1増やす
-        time += 1
-        # 最短経路を再計算する
-        shortest_path = nx.dijkstra_path(DG_copied, origin_node_id, destination_node_id)
-        #print(shortest_path)
 
     elif car.__class__.__name__ == 'Obstacle':
       print("Obstacle #%d instance is called, skip!!!" % (car.obstacle_node_id))
-    elif car.__class__.__name__ == 'Fire':
-      print("Fire #%d instance is called, skip!!!" % (car.fire_node_id))
 
   obstacle_x = []; obstacle_y = []
   for obstacle in obstacles_list:
@@ -176,25 +169,17 @@ def animate(time):
     obstacle_x.append(x_new)
     obstacle_y.append(y_new)
 
-  #fire
-  fire_x = [];fire_y = []
-  for fire in fires_list:
-    x_new, y_new = fire.move(DG, edges_fires_dic, sensitivity)
-    fire_x.append(x_new)
-    fire_y.append(y_new)
-
   # check if all the cars arrive at their destinations
-  if len(cars_list)-number_of_obstacles - number_of_fires == 0:
+  if len(cars_list)-number_of_obstacles == 0:
     print("Total simulation step: "+str(time-1))
     print("### End of simulation ###")
     sys.exit(0) # end of simulation, exit.
 
   line1.set_data(xdata, ydata)
   line2.set_data(obstacle_x,obstacle_y)
-  line3.set_data(fire_x, fire_y)
-  title.set_text("Simulation step: " + str(time) + ";  # of cars: " + str(len(cars_list) - number_of_obstacles - number_of_fires))
+  title.set_text("Simulation step: " + str(time) + ";  # of cars: " + str(len(cars_list) - number_of_obstacles))
 
-  return line1, line2, line3, title,
+  return line1, line2, title,
       
 # Optimal Velocity Function
 def V(b, current_max_speed):
@@ -245,20 +230,6 @@ if __name__ == "__main__":
     edges_obstacles_dic[(edge_lanes_list[origin_lane_id].node_id_list[0], edge_lanes_list[origin_lane_id].node_id_list[1])].append(obstacle)
     edges_cars_dic[(edge_lanes_list[origin_lane_id].node_id_list[0], edge_lanes_list[origin_lane_id].node_id_list[1])].append(obstacle)
 
-  #create fire
-  for i in range(number_of_fires):
-    origin_lane_id, destination_lane_id = select_OD_lanes()
-
-    # find fire node id
-    origin_node_id, destination_node_id = find_OD_node_ids(origin_lane_id, destination_lane_id)
-
-    fire = Fire(origin_node_id, destination_node_id, origin_lane_id, i)
-    fire.init(DG)
-    fires_list.append(fire)
-    cars_list.append(fire)
-    edges_fires_dic[(edge_lanes_list[origin_lane_id].node_id_list[0], edge_lanes_list[origin_lane_id].node_id_list[1])].append(fire)
-    edges_cars_dic[(edge_lanes_list[origin_lane_id].node_id_list[0], edge_lanes_list[origin_lane_id].node_id_list[1])].append(fire)
-
   for i in range(number_of_cars):
     # randomly select Orign and Destination lanes (O&D are different)
     origin_lane_id, destination_lane_id = select_OD_lanes()
@@ -286,14 +257,9 @@ if __name__ == "__main__":
   for i in range(len(obstacles_list)):
     obstacle_x.append(obstacles_list[i].current_position[0])
     obstacle_y.append(obstacles_list[i].current_position[1])
-  fire_x = [];fire_y = []
-  for i in range(len(fires_list)):
-    fire_x.append(fires_list[i].current_position[0])
-    fire_y.append(fires_list[i].current_position[1])
 
   line1, = plt.plot([], [], color="green", marker="s", linestyle="", markersize=3)
   line2, = plt.plot([], [], color="blue", marker="s", linestyle="", markersize=5)
-  line3, = plt.plot([], [], color="red", marker="s", linestyle="", markersize=5)
   title = ax.text(20.0, -20.0, "", va="center")
   
   # draw road network

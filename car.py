@@ -41,6 +41,7 @@ class Car:
     direction_x = self.current_end_node[0] - self.current_position[0]
     direction_y = self.current_end_node[1] - self.current_position[1]
     arg = math.atan2(direction_y, direction_x)
+    print(self.current_speed)
 
     arrived_cars_list = []
     #print(self.current_speed)
@@ -49,7 +50,6 @@ class Car:
     if np.sqrt((self.current_position[0] - self.current_end_node[0])**2 + (self.current_position[1] - self.current_end_node[1])**2) < self.current_speed: # to arrive at the terminal of edge
 
       self.current_sp_index += 1
-
       if self.current_sp_index >= len(self.shortest_path)-1: # arrived at the goal 
         self.goal_arrived = True
         x_new = self.current_end_node[0]
@@ -83,6 +83,7 @@ class Car:
       self.current_position = [x_new, y_new]
       current_start_node_id = self.shortest_path[ self.current_sp_index ]
       current_end_node_id = self.shortest_path[ self.current_sp_index+1]
+
       if edges_cars_dic[ (current_start_node_id, current_end_node_id) ].index( self ) > 0:
         car_forward_index = edges_cars_dic[ (current_start_node_id, current_end_node_id) ].index( self ) - 1
         car_forward_pt = edges_cars_dic[ (current_start_node_id, current_end_node_id) ][ car_forward_index ]
@@ -97,24 +98,43 @@ class Car:
   def U_turn(self,DG_copied,edges_cars_dic,sensitivity):
     self.current_sp_index += 1
     print(self.current_sp_index)
+    if self.current_sp_index < len(self.shortest_path) - 1:
 
-    # lane change
-    x_new = self.current_end_node[0]
-    y_new = self.current_end_node[1]
+      # lane change
+      x_new = self.current_end_node[0]
+      y_new = self.current_end_node[1]
 
-    current_start_node_id = self.shortest_path[self.current_sp_index - 1]
-    current_end_node_id = self.shortest_path[self.current_sp_index]
-    edges_cars_dic[(current_start_node_id, current_end_node_id)].remove(self)
-    self.current_sp_index += 1
+      current_start_node_id = self.shortest_path[self.current_sp_index - 1]
+      current_end_node_id = self.shortest_path[self.current_sp_index]
+      edges_cars_dic[(current_start_node_id, current_end_node_id)].remove(self)
 
-    current_start_node_id = self.shortest_path[self.current_sp_index]
-    self.current_start_node = DG_copied.nodes[current_start_node_id]["pos"]
-    self.current_position = DG_copied.nodes[current_start_node_id]["pos"]
-    current_end_node_id = self.shortest_path[self.current_sp_index + 1]
-    self.current_end_node = DG_copied.nodes[current_end_node_id]["pos"]
-    current_edge_attributes = DG_copied.get_edge_data(current_start_node_id, current_end_node_id)
-    self.current_max_speed = current_edge_attributes["speed"]
-    self.current_distance = current_edge_attributes["weight"]
-    edges_cars_dic[(current_start_node_id, current_end_node_id)].append(self)
+      old_start_node_id = current_start_node_id
+      old_end_node_id = current_end_node_id
+      DG_copied.remove_edge(old_start_node_id, old_end_node_id)
+      shortest_path = nx.dijkstra_path(DG_copied, self.orig_node_id, self.dest_node_id)
+
+      current_start_node_id = self.shortest_path[self.current_sp_index]
+      self.current_start_node = DG_copied.nodes[current_start_node_id]["pos"]
+      self.current_position = DG_copied.nodes[current_start_node_id]["pos"]
+
+      current_end_node_id = self.shortest_path[self.current_sp_index + 1]
+      self.current_end_node = DG_copied.nodes[current_end_node_id]["pos"]
+      current_edge_attributes = DG_copied.get_edge_data(current_start_node_id, current_end_node_id)
+      self.current_max_speed = current_edge_attributes["speed"]
+      self.current_distance = current_edge_attributes["weight"]
+      edges_cars_dic[(current_start_node_id, current_end_node_id)].append(self)
+
+      if edges_cars_dic[ (current_start_node_id, current_end_node_id) ].index( self ) > 0:
+        car_forward_index = edges_cars_dic[ (current_start_node_id, current_end_node_id) ].index( self ) - 1
+        car_forward_pt = edges_cars_dic[ (current_start_node_id, current_end_node_id) ][ car_forward_index ]
+        diff_dist = np.sqrt( (car_forward_pt.current_position[0] - self.current_position[0])**2 + (car_forward_pt.current_position[1] - self.current_position[1])**2 )
+        self.found_obstacles.append(car_forward_pt)
+        print(self.found_obstacles)
+
+      else:
+        diff_dist = 50.0
+      self.update_current_speed(sensitivity, diff_dist)
+
+
 
     return x_new, y_new
