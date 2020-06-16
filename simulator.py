@@ -28,7 +28,7 @@ infilename = "grid3x3.net.xml"
 number_of_cars = 20
 #number_of_cars = 5
 #number_of_fires = 1
-number_of_obstacles = 5
+number_of_obstacles = 20
 
 sensitivity = 1.0
 
@@ -139,24 +139,24 @@ def animate(time):
         cars_list.remove( car )
         goal_time_list.append(time)
 
+
       # TODO: if the car encounters road closure, it U-turns.
-      if edges_cars_dic[(edge_lanes_list[origin_lane_id].node_id_list[0], edge_lanes_list[origin_lane_id].node_id_list[1])].__class__.__name__ == "Obstacle":
+      if edges_cars_dic[(car.shortest_path[ car.current_sp_index ], car.shortest_path[ car.current_sp_index+1])].__class__.__name__ == "Obstacle" :
         # DGをコピー
         DG_copied = copy.deepcopy(DG)
-
+        #レーンの設定
         for i in range(len(edge_lanes_list) - 1):
           for j in range(i + 1, len(edge_lanes_list)):
             lane1 = edge_lanes_list[i]
             lane2 = edge_lanes_list[j]
 
-        #車線変更とedgeの削除
+        #車線変更とedgeの削除とx,yの更新
         if car.current_lane_id == lane1:
           lane1 = lane2
-          x_new, y_new = car.U_turn(DG_copied, edges_cars_dic, sensitivity)
-
         else:
           lane2 = lane1
-          x_new, y_new = car.U_turn(DG_copied, edges_cars_dic, sensitivity)
+        DG_copied.remove_edge(car.shortest_path[car.current_sp_index - 1],car.shortest_path[car.current_sp_index])
+        x_new, y_new = car.U_turn(DG_copied, edges_cars_dic, sensitivity)
         xdata.append(x_new)
         ydata.append(y_new)
 
