@@ -1,6 +1,8 @@
 import networkx as nx
 import numpy as np
-import math 
+import math
+import copy
+from pprint import pprint
 
 class Car:
   def __init__(self, orig_node_id, dest_node_id, shortest_path, current_lane_id):
@@ -59,6 +61,10 @@ class Car:
         edges_cars_dic[ (current_start_node_id, current_end_node_id) ].remove( self )
         arrived_cars_list.append( self )
 
+        car_forward_index = edges_cars_dic[(current_end_node_id, current_start_node_id)].index(self) - 1
+        car_forward_pt = edges_cars_dic[(current_end_node_id, current_start_node_id)][car_forward_index]
+        diff_dist = np.sqrt((car_forward_pt.current_position[0] - self.current_position[0]) ** 2 + (car_forward_pt.current_position[1] - self.current_position[1]) ** 2)
+
       else: # lane change
         x_new = self.current_end_node[0]
         y_new = self.current_end_node[1]
@@ -76,6 +82,11 @@ class Car:
         self.current_max_speed = current_edge_attributes["speed"]
         self.current_distance = current_edge_attributes["weight"]
         edges_cars_dic[ (current_start_node_id, current_end_node_id) ].append( self )
+
+        car_forward_index = edges_cars_dic[(current_start_node_id, current_end_node_id)].index(self) - 1
+        car_forward_pt = edges_cars_dic[(current_start_node_id, current_end_node_id)][car_forward_index]
+        diff_dist = np.sqrt((car_forward_pt.current_position[0] - self.current_position[0]) ** 2 + (car_forward_pt.current_position[1] - self.current_position[1]) ** 2)
+
     else: # move to the terminal of edge
       x_new = self.current_position[0] + self.current_speed*np.cos(arg)
       y_new = self.current_position[1] + self.current_speed*np.sin(arg)
@@ -83,36 +94,50 @@ class Car:
       current_start_node_id = self.shortest_path[ self.current_sp_index ]
       current_end_node_id = self.shortest_path[ self.current_sp_index+1]
 
+      car_forward_index = edges_cars_dic[(current_start_node_id, current_end_node_id)].index(self) - 1
+      car_forward_pt = edges_cars_dic[(current_start_node_id, current_end_node_id)][car_forward_index]
+      diff_dist = np.sqrt((car_forward_pt.current_position[0] - self.current_position[0]) ** 2 + (car_forward_pt.current_position[1] - self.current_position[1]) ** 2)
+
       if edges_cars_dic[ (current_start_node_id, current_end_node_id) ].index( self ) > 0:
         car_forward_index = edges_cars_dic[ (current_start_node_id, current_end_node_id) ].index( self ) - 1
         car_forward_pt = edges_cars_dic[ (current_start_node_id, current_end_node_id) ][ car_forward_index ]
         diff_dist = np.sqrt( (car_forward_pt.current_position[0] - self.current_position[0])**2 + (car_forward_pt.current_position[1] - self.current_position[1])**2 )
-        if car_forward_pt.__class__.__name__ == 'Obstacle':
-          self.found_obstacles.append(car_forward_pt)
-          print(self.found_obstacles)
 
       else:
         diff_dist = 50.0
       self.update_current_speed(sensitivity, diff_dist)
 
-    return x_new, y_new, self.goal_arrived
+    return x_new, y_new, self.goal_arrived, car_forward_pt, diff_dist
 
-  def U_turn(self,DG_copied,edges_cars_dic,sensitivity):
+  def U_turn(self,DG,edges_cars_dic, edge_lanes_list, sensitivity):
     self.current_sp_index += 1
+    DG_copied = copy.deepcopy(DG)
+    for i in range(len(edge_lanes_list) - 1):
+      for j in range(i + 1, len(edge_lanes_list)):
+        lane1 = edge_lanes_list[i]
+        lane2 = edge_lanes_list[j]
 
-    # lane change
+    # 車線変更とedgeの削除とx,yの更新
+    if self.current_lane_id == lane1:
+      self.current_lane_id = lane2
+    else:
+      self.current_lane_id = lane1
+
     x_new = self.current_end_node[0]
     y_new = self.current_end_node[1]
 
     current_start_node_id = self.shortest_path[self.current_sp_index - 1]
     current_end_node_id = self.shortest_path[self.current_sp_index]
+    self.origin_node_id = current_start_node_id
+
     shortest_path = nx.dijkstra_path(DG_copied, self.orig_node_id, self.dest_node_id)
+
     edges_cars_dic[(current_start_node_id, current_end_node_id)].remove(self)
+    DG_copied.remove_edge(self.shortest_path[self.current_sp_index - 1], self.shortest_path[self.current_sp_index])
 
     current_start_node_id = self.shortest_path[self.current_sp_index]
     self.current_start_node = DG_copied.nodes[current_start_node_id]["pos"]
     self.current_position = DG_copied.nodes[current_start_node_id]["pos"]
-
     current_end_node_id = self.shortest_path[self.current_sp_index + 1]
     self.current_end_node = DG_copied.nodes[current_end_node_id]["pos"]
     current_edge_attributes = DG_copied.get_edge_data(current_start_node_id, current_end_node_id)
