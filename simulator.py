@@ -28,7 +28,7 @@ infilename = "grid3x3.net.xml"
 #number_of_cars = 1000
 number_of_cars = 20
 #number_of_cars = 5
-#number_of_fires = 1
+number_of_fires = 1
 number_of_obstacles = 5
 
 sensitivity = 1.0
@@ -125,6 +125,8 @@ def init():
 def animate(time):
   global xdata,ydata,obstacle_x,obstacle_y
   goal_time_list = []
+  # DGのコピー
+  DG_copied = copy.deepcopy(DG)
 
   xdata = []; ydata=[]
 
@@ -149,8 +151,8 @@ def animate(time):
         xdata.append(x_new)
         ydata.append(y_new)
 
-    elif car.__class__.__name__ == 'Obstacle':
-      print("Obstacle #%d instance is called, skip!!!" % (car.obstacle_node_id))
+    #elif car.__class__.__name__ == 'Obstacle':
+     # print("Obstacle #%d instance is called, skip!!!" % (car.obstacle_node_id))
 
   obstacle_x = []; obstacle_y = []
   for obstacle in obstacles_list:
@@ -218,6 +220,16 @@ if __name__ == "__main__":
     cars_list.append(obstacle)
     edges_obstacles_dic[(edge_lanes_list[origin_lane_id].node_id_list[0], edge_lanes_list[origin_lane_id].node_id_list[1])].append(obstacle)
     edges_cars_dic[(edge_lanes_list[origin_lane_id].node_id_list[0], edge_lanes_list[origin_lane_id].node_id_list[1])].append(obstacle)
+
+  #create_fire
+  for i in range(number_of_fires):
+    origin_lane_id,destination_lane_id = select_OD_lanes()
+    fire = Fire(origin_node_id, destination_node_id, origin_lane_id, i)
+    fire.init(DG)
+    fires_list.append(fire)
+    cars_list.append(fire)
+    edges_fires_dic[(edge_lanes_list[origin_lane_id].node_id_list[0], edge_lanes_list[origin_lane_id].node_id_list[1])].append(fire)
+    edges_cars_dic[(edge_lanes_list[origin_lane_id].node_id_list[0], edge_lanes_list[origin_lane_id].node_id_list[1])].append(fire)
 
   for i in range(number_of_cars):
     # randomly select Orign and Destination lanes (O&D are different)
