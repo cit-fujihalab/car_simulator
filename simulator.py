@@ -26,10 +26,10 @@ infilename = "grid3x3.net.xml"
 #infilename = "tsudanuma.net.xml"
 
 #number_of_cars = 1000
-number_of_cars = 20
+number_of_cars = 10
 #number_of_cars = 5
-number_of_fires = 1
-number_of_obstacles = 5
+#number_of_fires = 1
+number_of_obstacles = 1
 
 sensitivity = 1.0
 
@@ -161,7 +161,7 @@ def animate(time):
     obstacle_y.append(y_new)
 
   # check if all the cars arrive at their destinations
-  if len(cars_list)-number_of_obstacles == 0:
+  if len(cars_list) - number_of_obstacles == 0:
     print("Total simulation step: "+str(time-1))
     print("### End of simulation ###")
     sys.exit(0) # end of simulation, exit.
@@ -222,14 +222,14 @@ if __name__ == "__main__":
     edges_cars_dic[(edge_lanes_list[origin_lane_id].node_id_list[0], edge_lanes_list[origin_lane_id].node_id_list[1])].append(obstacle)
 
   #create_fire
-  for i in range(number_of_fires):
-    origin_lane_id,destination_lane_id = select_OD_lanes()
-    fire = Fire(origin_node_id, destination_node_id, origin_lane_id, i)
-    fire.init(DG)
-    fires_list.append(fire)
-    cars_list.append(fire)
-    edges_fires_dic[(edge_lanes_list[origin_lane_id].node_id_list[0], edge_lanes_list[origin_lane_id].node_id_list[1])].append(fire)
-    edges_cars_dic[(edge_lanes_list[origin_lane_id].node_id_list[0], edge_lanes_list[origin_lane_id].node_id_list[1])].append(fire)
+  #for i in range(number_of_fires):
+   # origin_lane_id,destination_lane_id = select_OD_lanes()
+    #fire = Fire(origin_node_id, destination_node_id, origin_lane_id, i)
+    #fire.init(DG)
+    #fires_list.append(fire)
+    #cars_list.append(fire)
+    #edges_fires_dic[(edge_lanes_list[origin_lane_id].node_id_list[0], edge_lanes_list[origin_lane_id].node_id_list[1])].append(fire)
+    #edges_cars_dic[(edge_lanes_list[origin_lane_id].node_id_list[0], edge_lanes_list[origin_lane_id].node_id_list[1])].append(fire)
 
   for i in range(number_of_cars):
     # randomly select Orign and Destination lanes (O&D are different)

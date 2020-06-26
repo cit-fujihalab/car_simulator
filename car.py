@@ -118,6 +118,9 @@ class Car:
 
   def U_turn(self,DG_copied,edges_cars_dic, edge_lanes_list, sensitivity):
     self.current_sp_index += 1
+    x_new = self.current_end_node[0]
+    y_new = self.current_end_node[1]
+
     #レーンの組の指定
     for i in range(len(edge_lanes_list) - 1):
       for j in range(i + 1, len(edge_lanes_list)):
@@ -130,25 +133,34 @@ class Car:
     else:
       self.current_lane_id = lane1
 
+    #Uターン前のモデルの削除に関する部分
     current_start_node_id = self.shortest_path[self.current_sp_index - 1]
     current_end_node_id = self.shortest_path[self.current_sp_index]
     edges_cars_dic[(current_start_node_id, current_end_node_id)].remove(self)
-    if edges_cars_dic[(current_start_node_id,current_end_node_id)] in DG_copied:
-      DG_copied.remove_edge(current_start_node_id, current_end_node_id)
-    shortest_path = nx.dijkstra_path(DG_copied, current_start_node_id, self.dest_node_id)
+    print(current_start_node_id,current_end_node_id)
+
+    #障害物を含むedgeの削除
+    DG_copied.remove_node(current_start_node_id)
+    DG_copied.remove_node(current_end_node_id)
+    #DG_copied.remove_edge(current_start_node_id,current_end_node_id)
+
+    #最短経路計算のスタート地点の更新
+    self.orig_node_id = current_start_node_id
+
+    #最短経路の再計算
+    shortest_path = nx.dijkstra_path(DG_copied, self.orig_node_id, self.dest_node_id)
+    self.current_sp_index = 0
 
     current_start_node_id = self.shortest_path[self.current_sp_index]
     self.current_start_node = DG_copied.nodes[current_start_node_id]["pos"]
     self.current_position = DG_copied.nodes[current_start_node_id]["pos"]
-    current_end_node_id = self.shortest_path[self.current_sp_index + 1] #IndexError
+    current_end_node_id = self.shortest_path[self.current_sp_index + 1]
     self.current_end_node = DG_copied.nodes[current_end_node_id]["pos"]
     current_edge_attributes = DG_copied.get_edge_data(current_start_node_id, current_end_node_id)
     self.current_max_speed = current_edge_attributes["speed"]
     self.current_distance = current_edge_attributes["weight"]
     edges_cars_dic[(current_start_node_id, current_end_node_id)].append(self)
-
-    x_new = self.current_end_node[0]
-    y_new = self.current_end_node[1]
+    print(current_start_node_id, current_end_node_id)
 
     car_forward_index = edges_cars_dic[(current_start_node_id, current_end_node_id)].index(self) - 1
     car_forward_pt = edges_cars_dic[(current_start_node_id, current_end_node_id)][car_forward_index]
