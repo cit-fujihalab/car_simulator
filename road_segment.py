@@ -1,3 +1,4 @@
+import car
 class RoadSegment:
   def __init__(self, lane1, lane2):
     self.lane1 = lane1

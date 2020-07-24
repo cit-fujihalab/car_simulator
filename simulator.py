@@ -29,7 +29,7 @@ infilename = "grid3x3.net.xml"
 number_of_cars = 10
 #number_of_cars = 5
 #number_of_fires = 1
-number_of_obstacles = 1
+number_of_obstacles = 3
 
 sensitivity = 1.0
 
@@ -102,6 +102,7 @@ def select_OD_lanes():
   destination_lane_id = origin_lane_id
   while origin_lane_id == destination_lane_id:
     destination_lane_id = np.random.randint(len(edge_lanes_list))
+
   return origin_lane_id, destination_lane_id
 
 def find_OD_node_ids(origin_lane_id, destination_lane_id):
@@ -135,8 +136,8 @@ def animate(time):
       x_new, y_new, goal_arrived_flag, car_forward_pt, diff_dist = car.move(DG, edges_cars_dic, sensitivity)
 
       # update x_new and y_new
-      xdata.append(x_new)
-      ydata.append(y_new)
+      #xdata.append(x_new)
+      #ydata.append(y_new)
 
       # remove arrived cars from the list
       if car.goal_arrived == True:
@@ -144,15 +145,17 @@ def animate(time):
         goal_time_list.append(time)
 
       # TODO: if the car encounters road closure, it U-turns.
-      if car_forward_pt.__class__.__name__ != "Car" and diff_dist <= 30:
-        print("U_turn")
-        DG_copied = copy.deepcopy(DG)
-        x_new, y_new = car.U_turn(DG_copied, edges_cars_dic, edge_lanes_list, sensitivity)
-        xdata.append(x_new)
-        ydata.append(y_new)
+      #前が車両以外かつ距離が20以内
+      if car_forward_pt.__class__.__name__ != "Car" and diff_dist <= 20 :
+        print("U_turn start!")
+        x_new, y_new, DG_copied, d_shortest_path = car.U_turn(DG_copied, edges_cars_dic, edge_lanes_list, sensitivity)
+      xdata.append(x_new)
+      ydata.append(y_new)
 
     #elif car.__class__.__name__ == 'Obstacle':
      # print("Obstacle #%d instance is called, skip!!!" % (car.obstacle_node_id))
+    #elif car.__class__.__name__ == "Fire":
+
 
   obstacle_x = []; obstacle_y = []
   for obstacle in obstacles_list:
@@ -226,6 +229,7 @@ if __name__ == "__main__":
    # origin_lane_id,destination_lane_id = select_OD_lanes()
     #fire = Fire(origin_node_id, destination_node_id, origin_lane_id, i)
     #fire.init(DG)
+
     #fires_list.append(fire)
     #cars_list.append(fire)
     #edges_fires_dic[(edge_lanes_list[origin_lane_id].node_id_list[0], edge_lanes_list[origin_lane_id].node_id_list[1])].append(fire)
@@ -260,7 +264,7 @@ if __name__ == "__main__":
     obstacle_y.append(obstacles_list[i].current_position[1])
 
   line1, = plt.plot([], [], color="green", marker="s", linestyle="", markersize=3)
-  line2, = plt.plot([], [], color="blue", marker="s", linestyle="", markersize=5)
+  line2, = plt.plot([], [], color="blue", marker="s", linestyle="", markersize=4)
   title = ax.text(20.0, -20.0, "", va="center")
   
   # draw road network
