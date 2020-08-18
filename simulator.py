@@ -244,25 +244,25 @@ if __name__ == "__main__":
 
   # create obstacles
   #edges_all_list = DG.edges()
-  for i in range(number_of_obstacles):
-    origin_lane_id,destination_lane_id = select_OD_lanes()
-    origin_node_id,destination_node_id = find_OD_node_ids(origin_lane_id, destination_lane_id)
-    obstacle = Obstacle(origin_node_id, destination_node_id, origin_lane_id, i)
-    obstacle.init(DG)
-    obstacles_list.append(obstacle)
-    cars_list.append(obstacle)
-    edges_obstacles_dic[(edge_lanes_list[origin_lane_id].node_id_list[0], edge_lanes_list[origin_lane_id].node_id_list[1])].append(obstacle)
-    edges_cars_dic[(edge_lanes_list[origin_lane_id].node_id_list[0], edge_lanes_list[origin_lane_id].node_id_list[1])].append(obstacle)
-
   #for i in range(number_of_obstacles):
-    #obstacle_lane_id = find_obstacle_lane()
-    #obstacle_node_id, node_number = find_obstacle_node(obstacle_lane_id,node_x_list)
-    #obstacle = Obstacle(obstacle_node_id, obstacle_lane_id)
+    #origin_lane_id,destination_lane_id = select_OD_lanes()
+    #origin_node_id,destination_node_id = find_OD_node_ids(origin_lane_id, destination_lane_id)
+    #obstacle = Obstacle(origin_node_id, destination_node_id, origin_lane_id, i)
     #obstacle.init(DG)
     #obstacles_list.append(obstacle)
     #cars_list.append(obstacle)
-    #edges_obstacles_dic[(lane_all_list[obstacle_lane_id].node_id_list[0], lane_all_list[obstacle_lane_id].node_id_list[1])].append(obstacle)
-    #edges_cars_dic[(lane_all_list[obstacle_lane_id].node_id_list[0], lane_all_list[obstacle_lane_id].node_id_list[1])].append(obstacle)
+    #edges_obstacles_dic[(edge_lanes_list[origin_lane_id].node_id_list[0], edge_lanes_list[origin_lane_id].node_id_list[1])].append(obstacle)
+    #edges_cars_dic[(edge_lanes_list[origin_lane_id].node_id_list[0], edge_lanes_list[origin_lane_id].node_id_list[1])].append(obstacle)
+
+  for i in range(number_of_obstacles):
+    obstacle_lane_id = find_obstacle_lane()
+    obstacle_node_id, node_number = find_obstacle_node(obstacle_lane_id,node_x_list)
+    obstacle = Obstacle(obstacle_node_id, obstacle_lane_id)
+    obstacle.init(DG)
+    obstacles_list.append(obstacle)
+    cars_list.append(obstacle)
+    edges_obstacles_dic[(lane_all_list[obstacle_lane_id].node_id_list[0], lane_all_list[obstacle_lane_id].node_id_list[1])].append(obstacle)
+    edges_cars_dic[(lane_all_list[obstacle_lane_id].node_id_list[0], lane_all_list[obstacle_lane_id].node_id_list[1])].append(obstacle)
 
 
   for i in range(number_of_cars):
