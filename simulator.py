@@ -51,11 +51,10 @@ def create_road_network(root):
   lane_dic = {}
   node_id = 0
   lane_id = 0
-  node_number_list = []
-  node = 0
 
   DG = nx.DiGraph() # Directed graph of road network
   edge_lanes_list = [] # list of lane instances
+  lane_all_list = []
   for child in root:
     if child.tag == "edge":
       lane = Lane()
@@ -66,6 +65,7 @@ def create_road_network(root):
         data_list  = child2.attrib["shape"].split(" ")
         node_id_list = []
         node_x_list = []; node_y_list = []
+        obstacle_x_list = []; obstacle_y_list = []
         distance_list = []
         data_counter = 0
 
@@ -99,8 +99,14 @@ def create_road_network(root):
         if "from" in child.attrib and "to" in child.attrib:
           lane.set_others(float(child2.attrib["speed"]), node_id_list, node_x_list, node_y_list)
           edge_lanes_list.append(lane)  # to modify here
+        else:
+          lane.set_others(float(child2.attrib["speed"]), node_id_list, node_x_list, node_y_list)
+          lane_all_list.append(lane)
+          #print(len(lane_all_list))
+          #print(len(node_x_list))
 
-  return x_y_dic, lane_dic, DG, edge_lanes_list
+
+  return x_y_dic, lane_dic, DG, edge_lanes_list, node_x_list, node_y_list, lane_all_list
 
 # generate a list of road segments for U-turn
 def create_road_segments(edge_lanes_list):
@@ -128,13 +134,15 @@ def find_OD_node_ids(origin_lane_id, destination_lane_id):
   return origin_node_id, destination_node_id
 
 def find_obstacle_lane():
-  obstacle_lane_id = np.random.randint(len(edge_lanes_list))
+  obstacle_lane_id = np.random.randint(len(lane_all_list))
   return obstacle_lane_id
 
-#def find_obstacle_node(obstacle_lane_id):
-#  node_number = np.random.randint(len(node_x_list))
-#  obstacle_node_id = x_y_dic[(edge_lanes_list[obstacle_lane_id].node_x_list[node_number], edge_lanes_list[obstacle_lane_id].node_y_list[node_number])]
-#  return obstacle_node_id, node_number
+def find_obstacle_node(obstacle_lane_id, node_x_list):
+  node_number = np.random.randint(len(node_x_list))
+  while node_number == 0 and node_x_list[-1] == node_x_list[node_number]: #両端のノードを選択することを避けるため
+    node_number = np.random.randint(len(node_x_list))
+  obstacle_node_id = x_y_dic[(lane_all_list[obstacle_lane_id].node_x_list[node_number], lane_all_list[obstacle_lane_id].node_y_list[node_number])]
+  return obstacle_node_id, node_number
 
 def draw_road_network(DG):
   pos=nx.get_node_attributes(DG,'pos')
@@ -174,7 +182,7 @@ def animate(time):
       #前が車両以外かつ距離が20以内
       if car_forward_pt.__class__.__name__ != "Car" and diff_dist <= 20 :
         print("U_turn start!")
-        x_new, y_new, DG_copied, shortest_path = car.U_turn(DG_copied, edges_cars_dic, lane_dic, edge_lanes_list, road_segments_list, sensitivity)
+        x_new, y_new, DG_copied, shortest_path = car.U_turn(DG_copied, edges_cars_dic, lane_dic, edge_lanes_list, x_y_dic)
       xdata.append(x_new)
       ydata.append(y_new)
 
@@ -213,7 +221,7 @@ if __name__ == "__main__":
   # x_y_dic: node's x,y pos --> node id
   # DG: Directed graph of road network
   # edge_lanes_list: list of lane instances
-  x_y_dic, lane_dic, DG, edge_lanes_list = create_road_network(root)
+  x_y_dic, lane_dic, DG, edge_lanes_list, node_x_list, node_y_list, lane_all_list = create_road_network(root)
   
   # road_segments_list: list of road segment instances
   road_segments_list = create_road_segments(edge_lanes_list)
@@ -235,14 +243,10 @@ if __name__ == "__main__":
 
 
   # create obstacles
-  # edges_all_list = DG.edges()
+  #edges_all_list = DG.edges()
   for i in range(number_of_obstacles):
-    # randomly select obstacles lanes
     origin_lane_id,destination_lane_id = select_OD_lanes()
-
-    # find obstacle node id
     origin_node_id,destination_node_id = find_OD_node_ids(origin_lane_id, destination_lane_id)
-
     obstacle = Obstacle(origin_node_id, destination_node_id, origin_lane_id, i)
     obstacle.init(DG)
     obstacles_list.append(obstacle)
@@ -251,14 +255,14 @@ if __name__ == "__main__":
     edges_cars_dic[(edge_lanes_list[origin_lane_id].node_id_list[0], edge_lanes_list[origin_lane_id].node_id_list[1])].append(obstacle)
 
   #for i in range(number_of_obstacles):
-  #  obstacle_lane_id = find_obstacle_lane()
-  #  obstacle_node_id, node_number = find_obstacle_node(obstacle_lane_id)
-  #  obstacle = Obstacle(obstacle_node_id, obstacle_lane_id)
-  #  obstacle.init(DG)
-  #  obstacles_list.append(obstacle)
-  #  cars_list.append(obstacle)
-  #  edges_obstacles_dic[(edge_lanes_list[obstacle_lane_id].node_id_list[0], edge_lanes_list[obstacle_lane_id].node_id_list[1])].append(obstacle)
-  #  edges_cars_dic[(edge_lanes_list[obstacle_lane_id].node_id_list[0], edge_lanes_list[obstacle_lane_id].node_id_list[1])].append(obstacle)
+    #obstacle_lane_id = find_obstacle_lane()
+    #obstacle_node_id, node_number = find_obstacle_node(obstacle_lane_id,node_x_list)
+    #obstacle = Obstacle(obstacle_node_id, obstacle_lane_id)
+    #obstacle.init(DG)
+    #obstacles_list.append(obstacle)
+    #cars_list.append(obstacle)
+    #edges_obstacles_dic[(lane_all_list[obstacle_lane_id].node_id_list[0], lane_all_list[obstacle_lane_id].node_id_list[1])].append(obstacle)
+    #edges_cars_dic[(lane_all_list[obstacle_lane_id].node_id_list[0], lane_all_list[obstacle_lane_id].node_id_list[1])].append(obstacle)
 
 
   for i in range(number_of_cars):
