@@ -116,9 +116,9 @@ class Car:
         diff_dist = 50.0
       self.update_current_speed(sensitivity, diff_dist)
 
-    return x_new, y_new, self.goal_arrived, car_forward_pt, diff_dist
+    return x_new, y_new, self.goal_arrived, car_forward_pt, diff_dist, self.shortest_path
 
-  def U_turn(self,DG_copied,edges_cars_dic,lane_dic, edge_lanes_list, x_y_dic):
+  def U_turn(self,DG_copied,edges_cars_dic,lane_dic, edge_lanes_list, x_y_dic, obstacle_node_id_list):
     self.current_sp_index += 1
 
     x_new = self.current_end_node[0]
@@ -134,22 +134,22 @@ class Car:
     #車線に関して
     #print(lane_dic)
     self.current_lane_id = lane_dic[self.shortest_path[self.current_sp_index]]
-    print("今のノードの番号:"+str(self.shortest_path[self.current_sp_index]))#このノードの番号を用いてレーンを求める
-    print("今いるレーンの番号:"+str(self.current_lane_id))
+    #print("今のノードの番号:"+str(self.shortest_path[self.current_sp_index]))#このノードの番号を用いてレーンを求める
+    #print("今いるレーンの番号:"+str(self.current_lane_id))
 
     for i in range(len(edge_lanes_list) - 1):
       for j in range(i + 1, len(edge_lanes_list)):
         if edge_lanes_list[i].from_id == edge_lanes_list[j].to_id and edge_lanes_list[i].to_id == edge_lanes_list[j].from_id:
           if edge_lanes_list[self.current_lane_id] == edge_lanes_list[i]: #Uターン先のレーンの番号(i or j)
-            print("対向車線のレーンの番号"+str(j))
-            print("車線変更後のノード番号"+str(x_y_dic[(edge_lanes_list[j].node_x_list[1], edge_lanes_list[j].node_y_list[1])]))
+            #print("対向車線のレーンの番号"+str(j))
+            #print("車線変更後のノード番号"+str(x_y_dic[(edge_lanes_list[j].node_x_list[1], edge_lanes_list[j].node_y_list[1])]))
             current_start_node_id = x_y_dic[(edge_lanes_list[j].node_x_list[1], edge_lanes_list[j].node_y_list[1])]
             current_end_node_id = x_y_dic[(edge_lanes_list[j].node_x_list[-1], edge_lanes_list[j].node_y_list[-1])]
 
           elif edge_lanes_list[self.current_lane_id] == edge_lanes_list[j]:
             #print(i)
-            print("車線変更後のレーンの番号"+str(i))
-            print("車線変更後のノード番号"+str(x_y_dic[(edge_lanes_list[i].node_x_list[1], edge_lanes_list[i].node_y_list[1])]))
+            #print("車線変更後のレーンの番号"+str(i))
+            #print("車線変更後のノード番号"+str(x_y_dic[(edge_lanes_list[i].node_x_list[1], edge_lanes_list[i].node_y_list[1])]))
             current_start_node_id = x_y_dic[(edge_lanes_list[i].node_x_list[1], edge_lanes_list[i].node_y_list[1])]
             current_end_node_id = x_y_dic[(edge_lanes_list[i].node_x_list[-1], edge_lanes_list[i].node_y_list[-1])]
 
@@ -162,8 +162,18 @@ class Car:
 
     #最短経路の再計算
     print("車線変更前のshortest_path"+str(self.shortest_path))
+    #障害物が目的地にある場合の処理を追記する
+    #if ?
     self.shortest_path = nx.dijkstra_path(DG_copied, current_start_node_id, self.dest_node_id)
     print("車線変更後のshortest_path"+str(self.shortest_path))
+
+    #for i in obstacle_node_id_list:
+      #if self.shortest_path[-1] == i:
+        #print("終点に障害物があるため、終点を一つ手前のノードに移動")
+        #self.shortest_path.pop()
+        #print(self.shortest_path)
+        #self.dest_node_id = self.shortest_path[-1]
+
     self.current_sp_index = 0 # current_sp_indexのリセット
 
     current_start_node_id = self.shortest_path[self.current_sp_index]
