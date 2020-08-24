@@ -116,18 +116,35 @@ def create_road_segments(edge_lanes_list):
   return road_segments_list
 
 # randomly select Orign and Destination lanes (O&D are different)
-def select_OD_lanes():
+#def select_OD_lanes():
+  #origin_lane_id = np.random.randint(len(edge_lanes_list))
+  #destination_lane_id = origin_lane_id
+  #while origin_lane_id == destination_lane_id:
+    #destination_lane_id = np.random.randint(len(edge_lanes_list))
+  #return origin_lane_id, destination_lane_id
+
+#def find_OD_node_ids(origin_lane_id, destination_lane_id):
+  #origin_node_id = x_y_dic[ ( edge_lanes_list[origin_lane_id].node_x_list[0], edge_lanes_list[origin_lane_id].node_y_list[0] ) ]
+  #destination_node_id = x_y_dic[ ( edge_lanes_list[destination_lane_id].node_x_list[-1], edge_lanes_list[destination_lane_id].node_y_list[-1] ) ]
+  #return origin_node_id, destination_node_id
+
+def find_OD_node_and_lane():
   origin_lane_id = np.random.randint(len(edge_lanes_list))
   destination_lane_id = origin_lane_id
   while origin_lane_id == destination_lane_id:
     destination_lane_id = np.random.randint(len(edge_lanes_list))
-  return origin_lane_id, destination_lane_id
 
-def find_OD_node_ids(origin_lane_id, destination_lane_id):
-  origin_node_id = x_y_dic[ ( edge_lanes_list[origin_lane_id].node_x_list[0], edge_lanes_list[origin_lane_id].node_y_list[0] ) ]
-  destination_node_id = x_y_dic[ ( edge_lanes_list[destination_lane_id].node_x_list[-1], edge_lanes_list[destination_lane_id].node_y_list[-1] ) ]
-  print("destination_node_id = "+str(destination_node_id))
-  return origin_node_id, destination_node_id
+  origin_node_id = x_y_dic[(edge_lanes_list[origin_lane_id].node_x_list[0], edge_lanes_list[origin_lane_id].node_y_list[0])]
+  destination_node_id = x_y_dic[(edge_lanes_list[destination_lane_id].node_x_list[-1], edge_lanes_list[destination_lane_id].node_y_list[-1])]
+
+  while origin_node_id in obstacle_node_id_list:
+    origin_lane_id = np.random.randint(len(edge_lanes_list))
+    origin_node_id = x_y_dic[(edge_lanes_list[origin_lane_id].node_x_list[0], edge_lanes_list[origin_lane_id].node_y_list[0])]
+  while destination_node_id in obstacle_node_id_list or origin_lane_id == destination_lane_id:
+      destination_lane_id = np.random.randint(len(edge_lanes_list))
+      destination_node_id = x_y_dic[(edge_lanes_list[destination_lane_id].node_x_list[-1], edge_lanes_list[destination_lane_id].node_y_list[-1])]
+  return origin_lane_id, destination_lane_id, origin_node_id, destination_node_id
+
 
 def find_obstacle_lane():
   obstacle_lane_id = np.random.randint(len(edge_lanes_list))
@@ -177,14 +194,9 @@ def animate(time):
       #前が車両以外かつ距離が20以内
       if car_forward_pt.__class__.__name__ != "Car" and diff_dist <= 20 :
         print("U_turn start!")
-        x_new, y_new, DG_copied, shortest_path = car.U_turn(DG_copied, edges_cars_dic, lane_dic, edge_lanes_list, x_y_dic, obstacle_node_id_list)
+        x_new, y_new, DG_copied, shortest_path = car.U_turn(DG_copied, edges_cars_dic, lane_dic, edge_lanes_list, x_y_dic)
       xdata.append(x_new)
       ydata.append(y_new)
-
-      #if car_forward_pt.__class__.__name__ != "Car" and current_end_node_id == destination_node_id: #前のものが車両以外かつ目的地なら
-        #print("current_end_node_id = "+str(current_end_node_id))
-        #cars_list.remove(car)
-        #goal_time_list.append(time)
 
     #elif car.__class__.__name__ == 'Obstacle':
      # print("Obstacle #%d instance is called, skip!!!" % (car.obstacle_node_id))
@@ -244,13 +256,12 @@ if __name__ == "__main__":
 
   #edges_all_list = DG.edges()
   for i in range(number_of_obstacles):
-    #origin_lane_id,destination_lane_id = select_OD_lanes()
     obstacle_lane_id = find_obstacle_lane()
-    #origin_node_id,destination_node_id = find_OD_node_ids(origin_lane_id, destination_lane_id)
     obstacle_node_id = find_obstacle_node(obstacle_lane_id)
-    #obstacle = Obstacle(origin_node_id, destination_node_id, origin_lane_id, i)
     obstacle = Obstacle(obstacle_node_id, obstacle_lane_id)
-
+    #origin_lane_id,destination_lane_id = select_OD_lanes()
+    #origin_node_id,destination_node_id = find_OD_node_ids(origin_lane_id, destination_lane_id)
+    #obstacle = Obstacle(origin_node_id, destination_node_id, origin_lane_id, i)
     obstacle.init(DG)
     obstacles_list.append(obstacle)
     cars_list.append(obstacle)
@@ -259,20 +270,13 @@ if __name__ == "__main__":
     edges_obstacles_dic[(edge_lanes_list[obstacle_lane_id].node_id_list[0], edge_lanes_list[obstacle_lane_id].node_id_list[1])].append(obstacle)
     edges_cars_dic[(edge_lanes_list[obstacle_lane_id].node_id_list[0], edge_lanes_list[obstacle_lane_id].node_id_list[1])].append(obstacle)
 
-  #for i in range(number_of_obstacles):
-    #obstacle = Obstacle(obstacle_node_id, obstacle_lane_id)
-    #obstacle.init(DG)
-    #obstacles_list.append(obstacle)
-    #cars_list.append(obstacle)
-
-
-
   for i in range(number_of_cars):
     # randomly select Orign and Destination lanes (O&D are different)
-    origin_lane_id, destination_lane_id = select_OD_lanes()
-  
+    #origin_lane_id, destination_lane_id = select_OD_lanes()
     # find Orign and Destination node IDs
-    origin_node_id, destination_node_id = find_OD_node_ids(origin_lane_id, destination_lane_id)
+    #origin_node_id, destination_node_id = find_OD_node_ids(origin_lane_id, destination_lane_id)
+
+    origin_lane_id, destination_lane_id, origin_node_id, destination_node_id = find_OD_node_and_lane()
   
     # calculate a shortest path to go
     # Reference: https://networkx.github.io/documentation/latest/reference/algorithms/generated/networkx.algorithms.shortest_paths.weighted.dijkstra_path.html
