@@ -27,13 +27,9 @@ infilename = "grid3x3.net.xml"
 
 #number_of_cars = 1000
 number_of_cars = 1
-#number_of_cars = 5
-#number_of_fires = 1
 number_of_obstacles = 10
 
 sensitivity = 1.0
-
-
 # functions
 def read_parse_netxml(infilename):
   # open file
@@ -64,7 +60,6 @@ def create_road_network(root):
         data_list  = child2.attrib["shape"].split(" ")
         node_id_list = []
         node_x_list = []; node_y_list = []
-        obstacle_x_list = []; obstacle_y_list = []
         distance_list = []
         data_counter = 0
 
@@ -75,16 +70,16 @@ def create_road_network(root):
           if (float(data.split(",")[0]), float(data.split(",")[1])) not in x_y_dic.keys():
             node_id_list.append(node_id)
             #print(node_id_list)
+            #print(float(data.split(",")[0]), float(data.split(",")[1]))
             DG.add_node(node_id, pos=(float(data.split(",")[0]), float(data.split(",")[1])))
             x_y_dic[ (float(data.split(",")[0]), float(data.split(",")[1])) ] = node_id
-            lane_dic[(node_id)] = lane_id
-            if len(node_id_list) == 1 and lane_id >= 1:
-              lane_id += 1
-            elif len(node_id_list) == 5 and lane_id == 0:
-              lane_id += 1
-            #print(lane_dic)
-            node_id += 1
+            #lane_dic[(node_id)] = lane_id
+            #if len(node_id_list) == 1 and lane_id >= 1:
+            #  lane_id += 1
+            #elif len(node_id_list) == 5 and lane_id == 0:
+            #  lane_id += 1
 
+            node_id += 1
 
           else:
             node_id_list.append( x_y_dic[ (float(data.split(",")[0]), float(data.split(",")[1])) ] )
@@ -97,6 +92,14 @@ def create_road_network(root):
         for i in range(len(node_id_list)-1):
           DG.add_edge(node_id_list[i], node_id_list[i+1], weight=distance_list[i], color="black", speed=float(child2.attrib["speed"])) # calculate weight here
         if "from" in child.attrib and "to" in child.attrib:
+          for i in range(len(node_x_list)):
+            #print(x_y_dic[node_x_list[i],node_y_list[i]])#両端のノード番号
+            lane_dic[(x_y_dic[node_x_list[i],node_y_list[i]])] = lane_id
+          lane_id += 1
+          #pprint(lane_dic)
+
+
+
           lane.set_others(float(child2.attrib["speed"]), node_id_list, node_x_list, node_y_list)
           edge_lanes_list.append(lane)  # to modify here
           #print(node_id_list)
@@ -140,21 +143,22 @@ def find_OD_node_and_lane():
   while origin_node_id in obstacle_node_id_list:
     origin_lane_id = np.random.randint(len(edge_lanes_list))
     origin_node_id = x_y_dic[(edge_lanes_list[origin_lane_id].node_x_list[0], edge_lanes_list[origin_lane_id].node_y_list[0])]
+
   while destination_node_id in obstacle_node_id_list or origin_lane_id == destination_lane_id:
       destination_lane_id = np.random.randint(len(edge_lanes_list))
       destination_node_id = x_y_dic[(edge_lanes_list[destination_lane_id].node_x_list[-1], edge_lanes_list[destination_lane_id].node_y_list[-1])]
+
   return origin_lane_id, destination_lane_id, origin_node_id, destination_node_id
 
 
-def find_obstacle_lane():
+def find_obstacle_lane_and_node():
   obstacle_lane_id = np.random.randint(len(edge_lanes_list))
-  return obstacle_lane_id
-
-def find_obstacle_node(obstacle_lane_id):
   obstacle_node_id = x_y_dic[(edge_lanes_list[obstacle_lane_id].node_x_list[-1], edge_lanes_list[obstacle_lane_id].node_y_list[-1])]
-  #print("obstacle_node_id=" + str(obstacle_node_id))
+  while obstacle_node_id in obstacle_node_id_list:
+      obstacle_lane_id = np.random.randint(len(edge_lanes_list))
+      obstacle_node_id = x_y_dic[(edge_lanes_list[obstacle_lane_id].node_x_list[-1], edge_lanes_list[obstacle_lane_id].node_y_list[-1])]
   obstacle_node_id_list.append(obstacle_node_id)
-  return obstacle_node_id
+  return obstacle_lane_id, obstacle_node_id
 
 def draw_road_network(DG):
   pos=nx.get_node_attributes(DG,'pos')
@@ -192,9 +196,9 @@ def animate(time):
 
       # TODO: if the car encounters road closure, it U-turns.
       #前が車両以外かつ距離が20以内
-      if car_forward_pt.__class__.__name__ != "Car" and diff_dist <= 20 :
+      if car_forward_pt.__class__.__name__ != "Car" and diff_dist <= 30 :
         print("U_turn start!")
-        x_new, y_new, DG_copied, shortest_path = car.U_turn(DG_copied, edges_cars_dic, lane_dic, edge_lanes_list, x_y_dic)
+        x_new, y_new, DG_copied, shortest_path = car.U_turn(DG_copied, edges_cars_dic, lane_dic, edge_lanes_list, x_y_dic, obstacle_node_id_list)
       xdata.append(x_new)
       ydata.append(y_new)
 
@@ -255,20 +259,18 @@ if __name__ == "__main__":
   fires_list = []
 
   #edges_all_list = DG.edges()
-  for i in range(number_of_obstacles):
-    obstacle_lane_id = find_obstacle_lane()
-    obstacle_node_id = find_obstacle_node(obstacle_lane_id)
-    obstacle = Obstacle(obstacle_node_id, obstacle_lane_id)
-    #origin_lane_id,destination_lane_id = select_OD_lanes()
-    #origin_node_id,destination_node_id = find_OD_node_ids(origin_lane_id, destination_lane_id)
-    #obstacle = Obstacle(origin_node_id, destination_node_id, origin_lane_id, i)
-    obstacle.init(DG)
-    obstacles_list.append(obstacle)
-    cars_list.append(obstacle)
-    #edges_obstacles_dic[(edge_lanes_list[origin_lane_id].node_id_list[0], edge_lanes_list[origin_lane_id].node_id_list[1])].append(obstacle)
-    #edges_cars_dic[(edge_lanes_list[origin_lane_id].node_id_list[0], edge_lanes_list[origin_lane_id].node_id_list[1])].append(obstacle)
-    edges_obstacles_dic[(edge_lanes_list[obstacle_lane_id].node_id_list[0], edge_lanes_list[obstacle_lane_id].node_id_list[1])].append(obstacle)
-    edges_cars_dic[(edge_lanes_list[obstacle_lane_id].node_id_list[0], edge_lanes_list[obstacle_lane_id].node_id_list[1])].append(obstacle)
+  while True:
+    for i in range(number_of_obstacles):
+      obstacle_lane_id, obstacle_node_id = find_obstacle_lane_and_node()
+      obstacle = Obstacle(obstacle_node_id, obstacle_lane_id)
+      obstacle.init(DG)
+      obstacles_list.append(obstacle)
+      cars_list.append(obstacle)
+      edges_obstacles_dic[(edge_lanes_list[obstacle_lane_id].node_id_list[0], edge_lanes_list[obstacle_lane_id].node_id_list[1])].append(obstacle)
+      edges_cars_dic[(edge_lanes_list[obstacle_lane_id].node_id_list[0], edge_lanes_list[obstacle_lane_id].node_id_list[1])].append(obstacle)
+    if nx.is_weakly_connected(DG) == True:
+      break
+
 
   for i in range(number_of_cars):
     # randomly select Orign and Destination lanes (O&D are different)
@@ -282,7 +284,7 @@ if __name__ == "__main__":
     # Reference: https://networkx.github.io/documentation/latest/reference/algorithms/generated/networkx.algorithms.shortest_paths.weighted.dijkstra_path.html
     shortest_path = nx.dijkstra_path(DG, origin_node_id, destination_node_id)
   
-    car = Car(origin_node_id, destination_node_id, shortest_path, origin_lane_id)
+    car = Car(origin_node_id, destination_node_id, destination_lane_id, shortest_path, origin_lane_id)
     car.init(DG) # initialization of car settings
     cars_list.append(car)
     edges_cars_dic[ ( edge_lanes_list[origin_lane_id].node_id_list[0], edge_lanes_list[origin_lane_id].node_id_list[1] ) ].append( car )
