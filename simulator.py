@@ -64,21 +64,12 @@ def create_road_network(root):
         data_counter = 0
 
         for data in data_list:
-          #print(data)
           node_x_list.append( float(data.split(",")[0]) )
           node_y_list.append( float(data.split(",")[1]) )
           if (float(data.split(",")[0]), float(data.split(",")[1])) not in x_y_dic.keys():
             node_id_list.append(node_id)
-            #print(node_id_list)
-            #print(float(data.split(",")[0]), float(data.split(",")[1]))
             DG.add_node(node_id, pos=(float(data.split(",")[0]), float(data.split(",")[1])))
             x_y_dic[ (float(data.split(",")[0]), float(data.split(",")[1])) ] = node_id
-            #lane_dic[(node_id)] = lane_id
-            #if len(node_id_list) == 1 and lane_id >= 1:
-            #  lane_id += 1
-            #elif len(node_id_list) == 5 and lane_id == 0:
-            #  lane_id += 1
-
             node_id += 1
 
           else:
@@ -93,16 +84,10 @@ def create_road_network(root):
           DG.add_edge(node_id_list[i], node_id_list[i+1], weight=distance_list[i], color="black", speed=float(child2.attrib["speed"])) # calculate weight here
         if "from" in child.attrib and "to" in child.attrib:
           for i in range(len(node_x_list)):
-            #print(x_y_dic[node_x_list[i],node_y_list[i]])#両端のノード番号
             lane_dic[(x_y_dic[node_x_list[i],node_y_list[i]])] = lane_id
           lane_id += 1
-          #pprint(lane_dic)
-
-
-
           lane.set_others(float(child2.attrib["speed"]), node_id_list, node_x_list, node_y_list)
           edge_lanes_list.append(lane)  # to modify here
-          #print(node_id_list)
 
 
   return x_y_dic, lane_dic, DG, edge_lanes_list
@@ -114,23 +99,10 @@ def create_road_segments(edge_lanes_list):
     for j in range(i+1, len(edge_lanes_list)):
       if edge_lanes_list[i].from_id == edge_lanes_list[j].to_id and edge_lanes_list[i].to_id == edge_lanes_list[j].from_id:
         road_segments_list.append(RoadSegment(edge_lanes_list[i], edge_lanes_list[j]))
-        #print(edge_lanes_list[i], edge_lanes_list[j])
         break
   return road_segments_list
 
 # randomly select Orign and Destination lanes (O&D are different)
-#def select_OD_lanes():
-  #origin_lane_id = np.random.randint(len(edge_lanes_list))
-  #destination_lane_id = origin_lane_id
-  #while origin_lane_id == destination_lane_id:
-    #destination_lane_id = np.random.randint(len(edge_lanes_list))
-  #return origin_lane_id, destination_lane_id
-
-#def find_OD_node_ids(origin_lane_id, destination_lane_id):
-  #origin_node_id = x_y_dic[ ( edge_lanes_list[origin_lane_id].node_x_list[0], edge_lanes_list[origin_lane_id].node_y_list[0] ) ]
-  #destination_node_id = x_y_dic[ ( edge_lanes_list[destination_lane_id].node_x_list[-1], edge_lanes_list[destination_lane_id].node_y_list[-1] ) ]
-  #return origin_node_id, destination_node_id
-
 def find_OD_node_and_lane():
   origin_lane_id = np.random.randint(len(edge_lanes_list))
   destination_lane_id = origin_lane_id
@@ -152,12 +124,23 @@ def find_OD_node_and_lane():
 
 
 def find_obstacle_lane_and_node():
-  obstacle_lane_id = np.random.randint(len(edge_lanes_list))
-  obstacle_node_id = x_y_dic[(edge_lanes_list[obstacle_lane_id].node_x_list[-1], edge_lanes_list[obstacle_lane_id].node_y_list[-1])]
-  while obstacle_node_id in obstacle_node_id_list:
-      obstacle_lane_id = np.random.randint(len(edge_lanes_list))
-      obstacle_node_id = x_y_dic[(edge_lanes_list[obstacle_lane_id].node_x_list[-1], edge_lanes_list[obstacle_lane_id].node_y_list[-1])]
+  while True:
+    obstacle_lane_id = np.random.randint(len(edge_lanes_list))
+    obstacle_node_id = x_y_dic[(edge_lanes_list[obstacle_lane_id].node_x_list[-1], edge_lanes_list[obstacle_lane_id].node_y_list[-1])]
+    print(obstacle_node_id)
+
+    for i in range(len(edge_lanes_list) - 1):
+      for j in range(i + 1, len(edge_lanes_list)):
+        if edge_lanes_list[i].from_id == edge_lanes_list[j].to_id and edge_lanes_list[i].to_id == edge_lanes_list[j].from_id:
+          if edge_lanes_list[obstacle_lane_id] == edge_lanes_list[i]:
+            oncoming_lane = edge_lanes_list[j]
+          elif edge_lanes_list[obstacle_lane_id] == edge_lanes_list[j]:
+            oncoming_lane = edge_lanes_list[i]
+    if x_y_dic[(oncoming_lane.node_x_list[-1], oncoming_lane.node_y_list[-1])] not in obstacle_node_id_list and obstacle_node_id not in obstacle_node_id_list:
+      break
   obstacle_node_id_list.append(obstacle_node_id)
+  print("障害物ノードリスト : "+str(obstacle_node_id_list))
+
   return obstacle_lane_id, obstacle_node_id
 
 def draw_road_network(DG):
@@ -183,7 +166,7 @@ def animate(time):
 
   for car in cars_list:
     if car.__class__.__name__ == 'Car':
-      x_new, y_new, goal_arrived_flag, car_forward_pt, diff_dist, shortest_path = car.move(DG, edges_cars_dic, sensitivity)
+      x_new, y_new, goal_arrived_flag, car_forward_pt, diff_dist, current_start_node_id = car.move(DG, edges_cars_dic, sensitivity, lane_dic)
 
       # update x_new and y_new
       #xdata.append(x_new)
@@ -195,12 +178,35 @@ def animate(time):
         goal_time_list.append(time)
 
       # TODO: if the car encounters road closure, it U-turns.
-      #前が車両以外かつ距離が20以内
-      if car_forward_pt.__class__.__name__ != "Car" and diff_dist <= 30 :
+      if car_forward_pt.__class__.__name__ != "Car" and diff_dist <= 20 :
         print("U_turn start!")
-        x_new, y_new, DG_copied, shortest_path = car.U_turn(DG_copied, edges_cars_dic, lane_dic, edge_lanes_list, x_y_dic, obstacle_node_id_list)
+        x_new, y_new, DG_copied, current_start_node_id = car.U_turn(DG_copied, edges_cars_dic, lane_dic, edge_lanes_list, x_y_dic)
+
       xdata.append(x_new)
       ydata.append(y_new)
+      #対向車線を決定
+      #print("current_lane_id : "+str(car.current_lane_id))
+      for i in range(len(edge_lanes_list) - 1):
+        for j in range(i + 1, len(edge_lanes_list)):
+          if edge_lanes_list[i].from_id == edge_lanes_list[j].to_id and edge_lanes_list[i].to_id == edge_lanes_list[j].from_id:
+            if edge_lanes_list[car.current_lane_id] == edge_lanes_list[i]:
+              oc_lane = edge_lanes_list[j]
+            elif edge_lanes_list[car.current_lane_id] == edge_lanes_list[j]:
+              oc_lane = edge_lanes_list[i]
+
+      #対向車線に車両があるとき、車両の持っている障害物の情報を渡す。
+      if edges_cars_dic[(x_y_dic[(oc_lane.node_x_list[0], oc_lane.node_y_list[0])],x_y_dic[(oc_lane.node_x_list[1], oc_lane.node_y_list[1])])].__class__.__name__ in "Car" :
+          for i in car.obstacles_info_list:
+            if i not in car.obstacles_info_list:
+              car.obstacles_info_list.append(i)
+
+          #渡された障害物レーンがDGコピーに残っている場合remove_edge
+          for i in range(len(car.obstacles_info_list)):
+            a = x_y_dic[(edge_lanes_list[lane_dic[car.obstacles_info_list[i]]].node_x_list[0],edge_lanes_list[lane_dic[car.obstacles_info_list[i]]].node_y_list[0])]
+            if edge_lanes_list[lane_dic[(a)]] in DG_copied:
+              DG_copied.remove_edge(a, car.obstacles_info_list[i])
+          #経路の再計算
+          car.shortest_path = nx.dijkstra_path(DG_copied, current_start_node_id, destination_node_id)
 
     #elif car.__class__.__name__ == 'Obstacle':
      # print("Obstacle #%d instance is called, skip!!!" % (car.obstacle_node_id))
@@ -271,7 +277,6 @@ if __name__ == "__main__":
     if nx.is_weakly_connected(DG) == True:
       break
 
-
   for i in range(number_of_cars):
     # randomly select Orign and Destination lanes (O&D are different)
     #origin_lane_id, destination_lane_id = select_OD_lanes()
@@ -308,6 +313,6 @@ if __name__ == "__main__":
   draw_road_network(DG)
   
   print("### Start of simulation ###")
-  ani = FuncAnimation(fig, animate, frames=range(1000), init_func=init, blit=True, interval= 100)
+  ani = FuncAnimation(fig, animate, frames=range(1000), init_func=init, blit=True, interval= 1000)
   #ani.save("grid-sanimation.mp4", writer="ffmpeg")
   plt.show()
