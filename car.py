@@ -121,7 +121,7 @@ class Car:
 
     return x_new, y_new, self.goal_arrived, car_forward_pt, diff_dist, current_start_node_id
 
-  def U_turn(self,DG_copied,edges_cars_dic,lane_dic, edge_lanes_list, x_y_dic):
+  def U_turn(self,DG_copied,edges_cars_dic,lane_dic, edge_lanes_list, x_y_dic, obstacle_node_id_list):
     self.current_sp_index += 1
 
     x_new = self.current_end_node[0]
@@ -131,6 +131,8 @@ class Car:
     current_start_node_id = self.shortest_path[self.current_sp_index - 1]
     current_end_node_id = self.shortest_path[self.current_sp_index]
     edges_cars_dic[(current_start_node_id, current_end_node_id)].remove(self)
+    pre_start_node_id = current_start_node_id
+    pre_end_node_id = current_end_node_id
 
     #発見した障害物ノードidを保存
     if current_end_node_id not in self.obstacles_info_list:
@@ -160,13 +162,21 @@ class Car:
     self.current_end_node = DG_copied.nodes[current_end_node_id]["pos"]
 
     #障害物を含むedgeの削除
-    for i in range(len(self.obstacles_info_list)):
-      a = x_y_dic[(edge_lanes_list[lane_dic[self.obstacles_info_list[i]]].node_x_list[0], edge_lanes_list[lane_dic[self.obstacles_info_list[i]]].node_y_list[0])]
-      DG_copied.remove_edge(a, self.obstacles_info_list[i])
-
+    DG_copied.remove_edge(pre_start_node_id, pre_end_node_id)
     #最短経路の再計算
     #print("車線変更前のshortest_path"+str(self.shortest_path))
-    self.shortest_path = nx.dijkstra_path(DG_copied, current_start_node_id, self.dest_node_id)
+    while True:
+      try:
+        self.shortest_path = nx.dijkstra_path(DG_copied, current_start_node_id, self.dest_node_id)
+        break
+      except Exception:
+          print("例外処理")
+          self.dest_lane_id = np.random.randint(len(edge_lanes_list))
+          self.dest_node_id = x_y_dic[(edge_lanes_list[self.dest_lane_id].node_x_list[-1], edge_lanes_list[self.dest_lane_id].node_y_list[-1])]
+          while self.dest_node_id in obstacle_node_id_list or self.current_lane_id == self.dest_lane_id:
+            self.dest_lane_id = np.random.randint(len(edge_lanes_list))
+            self.dest_node_id = x_y_dic[(edge_lanes_list[self.dest_lane_id].node_x_list[-1], edge_lanes_list[self.dest_lane_id].node_y_list[-1])]
+
     #print("車線変更後のshortest_path" + str(self.shortest_path))
 
     self.current_sp_index = 0# current_sp_indexのリセット
@@ -183,3 +193,6 @@ class Car:
     print('U_turn end!')
 
     return x_new, y_new, DG_copied, current_start_node_id
+
+  #def Passing_communication(self):
+
