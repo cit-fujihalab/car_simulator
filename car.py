@@ -1,8 +1,6 @@
 import networkx as nx
 import numpy as np
 import math
-from road_segment import RoadSegment
-from pprint import pprint
 
 class Car:
   def __init__(self, orig_node_id, dest_node_id, dest_lane_id, shortest_path, current_lane_id):
@@ -123,7 +121,7 @@ class Car:
 
   def U_turn(self,DG_copied,edges_cars_dic,lane_dic, edge_lanes_list, x_y_dic, obstacle_node_id_list):
     self.current_sp_index += 1
-
+    print(self.obstacles_info_list)
     x_new = self.current_end_node[0]
     y_new = self.current_end_node[1]
 

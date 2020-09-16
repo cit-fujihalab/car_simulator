@@ -9,24 +9,22 @@ import networkx as nx
 import numpy as np
 from matplotlib.animation import FuncAnimation
 import math
-import time
 import copy
 from scipy import stats
-from pprint import pprint
+from PIL import Image, ImageOps
 
 from car import Car
 from lane import Lane
 from road_segment import RoadSegment
 from obstacle import Obstacle
-from fire import Fire
 
 # simulation settings
-infilename = "grid3x3.net.xml" 
+infilename = "grid3x3.net.xml"
 #infilename = "grid5x5.net.xml"
 #infilename = "tsudanuma.net.xml"
 
 #number_of_cars = 1000
-number_of_cars = 10
+number_of_cars = 50
 number_of_obstacles = 5
 
 sensitivity = 1.0
@@ -128,7 +126,6 @@ def find_obstacle_lane_and_node():
   while True:
     obstacle_lane_id = np.random.randint(len(edge_lanes_list))
     obstacle_node_id = x_y_dic[(edge_lanes_list[obstacle_lane_id].node_x_list[-1], edge_lanes_list[obstacle_lane_id].node_y_list[-1])]
-    #print(obstacle_node_id)
 
     for i in range(len(edge_lanes_list) - 1):
       for j in range(i + 1, len(edge_lanes_list)):
@@ -140,6 +137,7 @@ def find_obstacle_lane_and_node():
     if x_y_dic[(oncoming_lane.node_x_list[-1], oncoming_lane.node_y_list[-1])] not in obstacle_node_id_list and obstacle_node_id not in obstacle_node_id_list:
       break
   obstacle_node_id_list.append(obstacle_node_id)
+  pair_node_id_list.append(x_y_dic[(edge_lanes_list[obstacle_lane_id].node_x_list[0], edge_lanes_list[obstacle_lane_id].node_y_list[0])])
   #print("障害物ノードリスト : "+str(obstacle_node_id_list))
 
   return obstacle_lane_id, obstacle_node_id
@@ -176,7 +174,7 @@ def animate(time):
       # remove arrived cars from the list
       if car.goal_arrived == True:
         cars_list.remove( car )
-        goal_time_list.append(time)
+        goal_time_list.append(time)#目的地までかかった時間のリスト
 
       # TODO: if the car encounters road closure, it U-turns.
       if car_forward_pt.__class__.__name__ != "Car" and diff_dist <= 20 :
@@ -195,6 +193,7 @@ def animate(time):
               oc_lane = edge_lanes_list[j]
             elif edge_lanes_list[car.current_lane_id] == edge_lanes_list[j]:
               oc_lane = edge_lanes_list[i]
+
       for oncoming_car in edges_cars_dic[(x_y_dic[(oc_lane.node_x_list[0], oc_lane.node_y_list[0])],x_y_dic[(oc_lane.node_x_list[1], oc_lane.node_y_list[1])])]:
         if oncoming_car.__class__.__name__ =="Car" and len(oncoming_car.obstacles_info_list) >= 1:
           for i in oncoming_car.obstacles_info_list:
@@ -205,18 +204,18 @@ def animate(time):
               a = x_y_dic[(edge_lanes_list[lane_dic[i]].node_x_list[0],edge_lanes_list[lane_dic[i]].node_y_list[0])]
               if edge_lanes_list[lane_dic[(a)]] in DG_copied:
                 DG_copied.remove_edge(a, car.obstacles_info_list[i])
-              #経路の再計算
-              try:
-                car.shortest_path = nx.dijkstra_path(DG_copied, current_start_node_id, destination_node_id)
-                car.current_sp_index = 0
-                break
+                #経路の再計算
+                try:
+                  car.shortest_path = nx.dijkstra_path(DG_copied, current_start_node_id, destination_node_id)
+                  car.current_sp_index = 0
+                  break
 
-              except Exception:
-                destination_lane_id = np.random.randint(len(edge_lanes_list))
-                destination_node_id = x_y_dic[(edge_lanes_list[destination_lane_id].node_x_list[-1], edge_lanes_list[destination_lane_id].node_y_list[-1])]
-                while destination_node_id in obstacle_node_id_list or car.current_lane_id == destination_lane_id:
+                except Exception:
                   destination_lane_id = np.random.randint(len(edge_lanes_list))
                   destination_node_id = x_y_dic[(edge_lanes_list[destination_lane_id].node_x_list[-1], edge_lanes_list[destination_lane_id].node_y_list[-1])]
+                  while destination_node_id in obstacle_node_id_list or car.current_lane_id == destination_lane_id:
+                    destination_lane_id = np.random.randint(len(edge_lanes_list))
+                    destination_node_id = x_y_dic[(edge_lanes_list[destination_lane_id].node_x_list[-1], edge_lanes_list[destination_lane_id].node_y_list[-1])]
 
 
     #elif car.__class__.__name__ == 'Obstacle':
@@ -268,12 +267,13 @@ if __name__ == "__main__":
   for item in edges_all_list:
     edges_obstacles_dic[ item ] = []
     edges_cars_dic[ item ] = []
-    edges_fires_dic[ item ] = []
+
 
   obstacles_list = []
   obstacle_node_id_list = []
+  pair_node_id_list = []
   cars_list = []
-  fires_list = []
+
 
   #edges_all_list = DG.edges()
   #create obstacles
@@ -290,16 +290,24 @@ if __name__ == "__main__":
       break
 
   #create cars
+  DG_copied2 = copy.deepcopy(DG)
+  for i in range(len(obstacle_node_id_list)):
+    DG_copied2.remove_node(obstacle_node_id_list[i])
   for i in range(number_of_cars):
-    # randomly select Orign and Destination lanes (O&D are different) and find Orign and Destination node IDs
-    origin_lane_id, destination_lane_id, origin_node_id, destination_node_id = find_OD_node_and_lane()
-    # calculate a shortest path to go
     # Reference: https://networkx.github.io/documentation/latest/reference/algorithms/generated/networkx.algorithms.shortest_paths.weighted.dijkstra_path.html
+    origin_lane_id, destination_lane_id, origin_node_id, destination_node_id = find_OD_node_and_lane()
+    while True:
+      try:
+        shortest_path = nx.dijkstra_path(DG_copied2, origin_node_id, destination_node_id)
+        break
+      except Exception:
+        origin_lane_id, destination_lane_id, origin_node_id, destination_node_id = find_OD_node_and_lane()
     shortest_path = nx.dijkstra_path(DG, origin_node_id, destination_node_id)
     car = Car(origin_node_id, destination_node_id, destination_lane_id, shortest_path, origin_lane_id)
-    car.init(DG) # initialization of car settings
+    car.init(DG)  # initialization of car settings
     cars_list.append(car)
-    edges_cars_dic[ ( edge_lanes_list[origin_lane_id].node_id_list[0], edge_lanes_list[origin_lane_id].node_id_list[1] ) ].append( car )
+    edges_cars_dic[(edge_lanes_list[origin_lane_id].node_id_list[0], edge_lanes_list[origin_lane_id].node_id_list[1])].append(car)
+
 
 
   # animation initial settings
