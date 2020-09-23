@@ -20,17 +20,17 @@ from road_segment import RoadSegment
 from obstacle import Obstacle
 
 # simulation settings
-infilename = "grid3x3.net.xml"
-#infilename = "grid5x5.net.xml"
+#infilename = "grid3x3.net.xml"
+infilename = "grid5x5.net.xml"
 #infilename = "tsudanuma.net.xml"
 
-png_infilename = "tsudanuma2-osm.png"
+#png_infilename = "tsudanuma2-osm.png"
 
 
-number_of_cars = 1000
+number_of_cars = 200
 #number_of_cars = 50
 #number_of_cars = 100
-number_of_obstacles = 5
+number_of_obstacles = 30
 
 sensitivity = 1.0
 # functions
@@ -360,11 +360,11 @@ if __name__ == "__main__":
   line2, = plt.plot([], [], color="red", marker="s", linestyle="", markersize=4)
   title = ax.text(20.0, -20.0, "", va="center")
 
-  img = Image.open(png_infilename)
-  img = img.crop((212, 176, 761, 574))#(left, upper, right, lower)
-  img = img.resize((2137, 1553), Image.ANTIALIAS) #(width, heigth)
-  img = ImageOps.flip(img) #上下反転
-  img_list = np.asarray(img)
+#  img = Image.open(png_infilename)
+#  img = img.crop((212, 176, 761, 574))#(left, upper, right, lower)
+#  img = img.resize((2137, 1553), Image.ANTIALIAS) #(width, heigth)
+#  img = ImageOps.flip(img) #上下反転
+#  img_list = np.asarray(img)
   #plt.imshow(img_list)
   ## draw road network
   draw_road_network(DG)
