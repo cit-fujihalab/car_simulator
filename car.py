@@ -17,8 +17,10 @@ class Car:
     self.current_end_node = []
     self.obstacles_info_list = []
     self.current_distance = 0.0
-    self.change_path = 0
-    self.passing_communication = 0
+    self.number_of_shortest_path_changes = 0
+    self.number_of_opportunistic_communication = 0
+    self.elapsed_time = 0
+    self.moving_distance = 0
     self.goal_arrived = False
     self.DG_copied = copy.deepcopy(DG)
 
@@ -41,7 +43,11 @@ class Car:
   def update_current_speed(self, sensitivity, inter_car_distance):
     self.current_speed += sensitivity*( self.V(inter_car_distance) - self.current_speed )
 
-  def move(self, DG, edges_cars_dic, sensitivity, lane_dic):
+  def move(self, edges_cars_dic, sensitivity, lane_dic, edge_length_dic):
+
+    self.elapsed_time += 1
+    #self.moving_distance += edge_length_dic[lane_dic[self.shortest_path[self.current_sp_index]]]
+    #print(edge_length_dic[lane_dic[self.shortest_path[self.current_sp_index]]])
     # x_prev == self.current_position[0]
     # y_prev == self.current_position[1]
     direction_x = self.current_end_node[0] - self.current_position[0]
@@ -79,13 +85,13 @@ class Car:
         edges_cars_dic[ (current_start_node_id, current_end_node_id) ].remove( self )
 
         current_start_node_id = self.shortest_path[ self.current_sp_index ]
-        self.current_start_node = DG.nodes[ current_start_node_id ]["pos"]
-        self.current_position = DG.nodes[ current_start_node_id ]["pos"]
+        self.current_start_node = self.DG_copied.nodes[ current_start_node_id ]["pos"]
+        self.current_position = self.DG_copied.nodes[ current_start_node_id ]["pos"]
         current_end_node_id = self.shortest_path[ self.current_sp_index+1]
-        self.current_end_node = DG.nodes[ current_end_node_id ]["pos"]
-        current_edge_attributes = DG.get_edge_data(current_start_node_id, current_end_node_id)
-        self.current_max_speed = current_edge_attributes["speed"]
-        self.current_distance = current_edge_attributes["weight"]
+        self.current_end_node = self.DG_copied.nodes[ current_end_node_id ]["pos"]
+        current_edge_attributes = self.DG_copied.get_edge_data(current_start_node_id, current_end_node_id)
+        #self.current_max_speed = current_edge_attributes["speed"]
+        #self.current_distance = current_edge_attributes["weight"]
         edges_cars_dic[ (current_start_node_id, current_end_node_id) ].append( self )
         #print(edges_cars_dic[(current_start_node_id, current_end_node_id)].index(self)) #レーン内の車両または障害物の数
 
@@ -118,11 +124,11 @@ class Car:
         diff_dist = 50.0
       self.update_current_speed(sensitivity, diff_dist)
       self.current_lane_id = lane_dic[self.shortest_path[self.current_sp_index]]
-
-    return x_new, y_new, self.goal_arrived, car_forward_pt, diff_dist, current_start_node_id
+    return x_new, y_new, self.goal_arrived, car_forward_pt, diff_dist
 
   def U_turn(self, edges_cars_dic,lane_dic, edge_lanes_list, x_y_dic, obstacle_node_id_list):
     self.current_sp_index += 1
+
 
     x_new = self.current_end_node[0]
     y_new = self.current_end_node[1]
@@ -134,7 +140,7 @@ class Car:
     pre_start_node_id = current_start_node_id
     pre_end_node_id = current_end_node_id
 
-    self.change_path += 1
+
     #発見した障害物ノードidを保存
     if current_end_node_id not in self.obstacles_info_list:
       self.obstacles_info_list.append(current_end_node_id)
@@ -161,6 +167,7 @@ class Car:
     self.current_start_node = self.DG_copied.nodes[current_start_node_id]["pos"]
     self.current_position = self.DG_copied.nodes[current_start_node_id]["pos"]
     self.current_end_node = self.DG_copied.nodes[current_end_node_id]["pos"]
+    #print(x_y_dic[self.current_position])#ノード番号
 
     #障害物を含むedgeの削除
     if self.DG_copied.has_edge(pre_start_node_id, pre_end_node_id) == True:
@@ -173,7 +180,6 @@ class Car:
         self.shortest_path = nx.dijkstra_path(self.DG_copied, current_start_node_id, self.dest_node_id)
         break
       except Exception:
-          print("例外処理")
           self.dest_lane_id = np.random.randint(len(edge_lanes_list))
           self.dest_node_id = x_y_dic[(edge_lanes_list[self.dest_lane_id].node_x_list[-1], edge_lanes_list[self.dest_lane_id].node_y_list[-1])]
           while self.dest_node_id in obstacle_node_id_list or self.current_lane_id == self.dest_lane_id:
@@ -181,7 +187,7 @@ class Car:
             self.dest_node_id = x_y_dic[(edge_lanes_list[self.dest_lane_id].node_x_list[-1], edge_lanes_list[self.dest_lane_id].node_y_list[-1])]
 
     #print("車線変更後のshortest_path" + str(self.shortest_path))
-
+    self.number_of_shortest_path_changes += 1
     self.current_sp_index = 0# current_sp_indexのリセット
 
     current_start_node_id = self.shortest_path[self.current_sp_index]
@@ -193,7 +199,9 @@ class Car:
     self.current_max_speed = current_edge_attributes["speed"]
     self.current_distance = current_edge_attributes["weight"]
     edges_cars_dic[(current_start_node_id, current_end_node_id)].append(self)
-    print('U_turn end!')
+    #print('U_turn end!')
 
-    return x_new, y_new, current_start_node_id
+    return x_new, y_new
+
+
 
