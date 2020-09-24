@@ -2,6 +2,7 @@ import networkx as nx
 import numpy as np
 import math
 import copy
+import pprint
 
 class Car:
   def __init__(self, orig_node_id, dest_node_id, dest_lane_id, shortest_path, current_lane_id, DG):
@@ -55,10 +56,18 @@ class Car:
     arg = math.atan2(direction_y, direction_x)
 
     arrived_cars_list = []
+
     #x_new = None; y_new = None
+    #print(edge_length_dic.get(lane_dic[self.shortest_path[self.current_sp_index]]))
+    #pprint.pprint(lane_dic)
+    #print(self.shortest_path)
 
+
+    #print(self.moving_distance)
+    #edge_length_dic  key : lane_id, value : edge_length
     if np.sqrt((self.current_position[0] - self.current_end_node[0])**2 + (self.current_position[1] - self.current_end_node[1])**2) < self.current_speed: # to arrive at the terminal of edge
-
+      if self.shortest_path[self.current_sp_index] in lane_dic:
+        self.moving_distance += edge_length_dic[lane_dic[self.shortest_path[self.current_sp_index]]]
       self.current_sp_index += 1
       if self.current_sp_index >= len(self.shortest_path)-1: # arrived at the goal 
         self.goal_arrived = True
@@ -77,6 +86,8 @@ class Car:
         arrived_cars_list.append( self )
 
       else: # lane change
+        if self.shortest_path[self.current_sp_index] in lane_dic:
+          self.moving_distance += edge_length_dic[lane_dic[self.shortest_path[self.current_sp_index]]]
         x_new = self.current_end_node[0]
         y_new = self.current_end_node[1]
 

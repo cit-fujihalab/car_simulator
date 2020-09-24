@@ -10,9 +10,12 @@ import numpy as np
 from matplotlib.animation import FuncAnimation
 import math
 import copy
+import pprint
 from scipy import stats
 from PIL import Image, ImageOps
 import smopy
+import json
+import gc
 
 from car import Car
 from lane import Lane
@@ -23,13 +26,18 @@ from obstacle import Obstacle
 #infilename = "grid3x3.net.xml"
 infilename = "grid5x5.net.xml"
 #infilename = "tsudanuma.net.xml"
+#infilename = "sfc_small.net.xml"
 
 #png_infilename = "tsudanuma2-osm.png"
+#png_infilename = "sanfrancisco.png"
+#filename_geojson = "sfc_small.geojson"
 
+opportunistic_communication_frag = True
 
-number_of_cars = 200
+#number_of_cars = 1000
+number_of_cars = 300
 #number_of_cars = 50
-#number_of_cars = 100
+#number_of_obstacles = 5
 number_of_obstacles = 30
 
 sensitivity = 1.0
@@ -42,6 +50,44 @@ def read_parse_netxml(infilename):
   root = ET.fromstring(infile.read())
   #print(root.tag, root.attrib)
   return root
+
+##サンフランシスコ用
+#def get_map_smopy():
+#  infile = open(filename_geojson, "r")
+#  data_dic = json.load(infile)
+#
+#  max_lon = -180.0; min_lon = 180.0
+#  max_lat = -90.0; min_lat = 90.0
+#  for l in data_dic["features"][0]["geometry"]["coordinates"][0]:
+#    #print(l)
+#    if max_lon < float(l[0]):
+#      max_lon = float(l[0])
+#    if max_lat < float(l[1]):
+#      max_lat = float(l[1])
+#    if min_lon > float(l[0]):
+#      min_lon = float(l[0])
+#    if min_lat > float(l[1]):
+#      min_lat = float(l[1])
+#
+#  lon_lat_tuple = (min_lat, min_lon, max_lat, max_lon)
+#  print(lon_lat_tuple)
+#
+#  z=17
+#  smopy_map = smopy.Map(lon_lat_tuple, tileserver="https://tile.openstreetmap.org/{z}/{x}/{y}.png", tilesize=256, maxtiles=16, z=z)
+#  #smopy_map = smopy.Map(lon_lat_tuple, tileserver="http://a.tile.stamen.com/toner/{z}/{x}/{y}.png" ,tilesize=256, maxtiles=16, z=z)
+#  print("got map")
+#
+#  px_min_lon, px_min_lat = smopy_map.to_pixels( lat=lon_lat_tuple[0], lon=lon_lat_tuple[1] )
+#  px_max_lon, px_max_lat = smopy_map.to_pixels( lat=lon_lat_tuple[2], lon=lon_lat_tuple[3] )
+#
+#  x0 = min(px_max_lon, px_min_lon)
+#  x1 = max(px_max_lon, px_min_lon)
+#  y0 = min(px_max_lat, px_min_lat)
+#  y1 = max(px_max_lat, px_min_lat)
+#
+#  smopy_map.save_png(png_infilename)
+#
+#  return smopy_map, x0, x1, y0, y1, lon_lat_tuple
 
 def create_road_network(root):
   # read edge tagged data for reading the road network
@@ -87,9 +133,8 @@ def create_road_network(root):
         for i in range(len(node_id_list)-1):
           DG.add_edge(node_id_list[i], node_id_list[i+1], weight=distance_list[i], color="black", speed=float(child2.attrib["speed"])) # calculate weight here
         if "from" in child.attrib and "to" in child.attrib:
-
-          print("エッジ長とレーン番号の組",float(child2.attrib["length"]), lane_id)
-          edge_length_dic[float(child2.attrib["length"])] = lane_id
+          #print("エッジ長とレーン番号の組",float(child2.attrib["length"]), lane_id)
+          edge_length_dic[lane_id] = float(child2.attrib["length"])
           for i in range(len(node_x_list)):
             lane_dic[(x_y_dic[node_x_list[i],node_y_list[i]])] = lane_id
           lane_id += 1
@@ -187,7 +232,7 @@ def animate(time):
         number_of_shortest_path_changes_list.append(car.number_of_shortest_path_changes)
         number_of_opportunistic_communication_list.append(car.number_of_opportunistic_communication)
         goal_time_list.append(car.elapsed_time)
-        #moving_distance_list.append(car.moving_distance)
+        moving_distance_list.append(round(car.moving_distance,1))
         cars_list.remove( car )
 
       # TODO: if the car encounters road closure, it U-turns.
@@ -197,46 +242,45 @@ def animate(time):
 
       xdata.append(x_new)
       ydata.append(y_new)
-      oc_lane = 0
       #対向車線を決定 oc = oncoming = 対向
       #対向車線に車両があるとき、車両の持っている障害物の情報を渡す。
-      for i in range(len(edge_lanes_list) - 1):
-        for j in range(i + 1, len(edge_lanes_list)):
-          if edge_lanes_list[i].from_id == edge_lanes_list[j].to_id and edge_lanes_list[i].to_id == edge_lanes_list[j].from_id:
-            if edge_lanes_list[car.current_lane_id] == edge_lanes_list[i]:
-              oc_lane = edge_lanes_list[j]
-            elif edge_lanes_list[car.current_lane_id] == edge_lanes_list[j]:
-              oc_lane = edge_lanes_list[i]
 
+      if opportunistic_communication_frag == True: #すれ違い機能のON/OFF (35行目)
+        if len(cars_list) >= number_of_cars/2: #途中ですれ違い機能の切り替え用(50%がゴールしたらすれ違いなし)
+          for i in range(len(edge_lanes_list) - 1):
+            for j in range(i + 1, len(edge_lanes_list)):
+              if edge_lanes_list[i].from_id == edge_lanes_list[j].to_id and edge_lanes_list[i].to_id == edge_lanes_list[j].from_id:
+                if edge_lanes_list[car.current_lane_id] == edge_lanes_list[i]:
+                  oc_lane = edge_lanes_list[j]
+                elif edge_lanes_list[car.current_lane_id] == edge_lanes_list[j]:
+                  oc_lane = edge_lanes_list[i]
 
-      if oc_lane  != 0:
-        for oncoming_car in edges_cars_dic[(x_y_dic[(oc_lane.node_x_list[0], oc_lane.node_y_list[0])],x_y_dic[(oc_lane.node_x_list[1], oc_lane.node_y_list[1])])]:
-          if oncoming_car.__class__.__name__ =="Car" and len(oncoming_car.obstacles_info_list) >= 1:
-            for i in oncoming_car.obstacles_info_list:
-              if i not in car.obstacles_info_list:
-                #print("すれ違い通信開始")
+          for oncoming_car in edges_cars_dic[(x_y_dic[(oc_lane.node_x_list[0], oc_lane.node_y_list[0])],x_y_dic[(oc_lane.node_x_list[1], oc_lane.node_y_list[1])])]:
+            if oncoming_car.__class__.__name__ =="Car" and len(oncoming_car.obstacles_info_list) >= 1:
+              for i in oncoming_car.obstacles_info_list:
+                if i not in car.obstacles_info_list:
+                  #print("すれ違い通信開始")
+                  car.number_of_opportunistic_communication += 1
+                  car.obstacles_info_list.append(i)
+                  a = x_y_dic[(edge_lanes_list[lane_dic[car.obstacles_info_list[-1]]].node_x_list[0],edge_lanes_list[lane_dic[car.obstacles_info_list[-1]]].node_y_list[0])]
+                  if car.DG_copied.has_edge(a, car.obstacles_info_list[-1]) == True:
+                    car.DG_copied.remove_edge(a, car.obstacles_info_list[-1])
+                    #print((car.current_position[0], car.current_position[1]) in x_y_dic)
+                    #現在地がcurrent_end_node_idのときの条件を追加
+                    if (car.current_position[0], car.current_position[1]) in x_y_dic and x_y_dic[(car.current_position[0], car.current_position[1])] == car.shortest_path[car.current_sp_index + 1]:
+                      #経路の再計算
+                      try:
+                        car.shortest_path = nx.dijkstra_path(car.DG_copied, x_y_dic[(car.current_position[0], car.current_position[1])], destination_node_id) #current_start_node_id?
+                        break
 
-                car.number_of_opportunistic_communication += 1
-                car.obstacles_info_list.append(i)
-                a = x_y_dic[(edge_lanes_list[lane_dic[car.obstacles_info_list[-1]]].node_x_list[0],edge_lanes_list[lane_dic[car.obstacles_info_list[-1]]].node_y_list[0])]
-                if car.DG_copied.has_edge(a, car.obstacles_info_list[-1]) == True:
-                  car.DG_copied.remove_edge(a, car.obstacles_info_list[-1])
-                  #print((car.current_position[0], car.current_position[1]) in x_y_dic)
-                  #現在地がcurrent_end_node_idのときの条件を追加
-                  if (car.current_position[0], car.current_position[1]) in x_y_dic and x_y_dic[(car.current_position[0], car.current_position[1])] == car.shortest_path[car.current_sp_index + 1]:
-                    #経路の再計算
-                    try:
-                      car.shortest_path = nx.dijkstra_path(car.DG_copied, x_y_dic[(car.current_position[0], car.current_position[1])], destination_node_id) #current_start_node_id?
-                      break
-
-                    except Exception:
-                      destination_lane_id = np.random.randint(len(edge_lanes_list))
-                      destination_node_id = x_y_dic[(edge_lanes_list[destination_lane_id].node_x_list[-1], edge_lanes_list[destination_lane_id].node_y_list[-1])]
-                      while destination_node_id in obstacle_node_id_list or car.current_lane_id == destination_lane_id:
+                      except Exception:
                         destination_lane_id = np.random.randint(len(edge_lanes_list))
                         destination_node_id = x_y_dic[(edge_lanes_list[destination_lane_id].node_x_list[-1], edge_lanes_list[destination_lane_id].node_y_list[-1])]
-                    car.current_sp_index = 0
-                    car.number_of_shortest_path_changes += 1
+                        while destination_node_id in obstacle_node_id_list or car.current_lane_id == destination_lane_id:
+                          destination_lane_id = np.random.randint(len(edge_lanes_list))
+                          destination_node_id = x_y_dic[(edge_lanes_list[destination_lane_id].node_x_list[-1], edge_lanes_list[destination_lane_id].node_y_list[-1])]
+                      car.current_sp_index = 0
+                      car.number_of_shortest_path_changes += 1
 
 
     #elif car.__class__.__name__ == 'Obstacle':
@@ -255,7 +299,7 @@ def animate(time):
     #print("経路変更回数"+str(number_of_shortest_path_changes_list))
     #print("すれ違い通信回数"+str(number_of_opportunistic_communication_list))
     #print("ゴールタイム"+str(goal_time_list))
-
+    #print("総移動距離"+str(moving_distance_list))
     with open("結果.txt", 'w') as f:
       f.write("経路変更回数"+str(number_of_shortest_path_changes_list)+"\n")
       f.write ("すれ違い通信回数"+str(number_of_opportunistic_communication_list)+"\n")
@@ -280,12 +324,12 @@ def V(b, current_max_speed):
 if __name__ == "__main__":
   # root: xml tree of input file 
   root = read_parse_netxml(infilename)
-  
+  #smopy_map, x0, x1, y0, y1, lon_lat_tuple = get_map_smopy() #サンフランシスコ用
   # x_y_dic: node's x,y pos --> node id
   # DG: Directed graph of road network
   # edge_lanes_list: list of lane instances
   x_y_dic, lane_dic, edge_length_dic, DG, edge_lanes_list = create_road_network(root)
-  print("edge_length_dic "+str(edge_length_dic))
+
   # road_segments_list: list of road segment instances
   road_segments_list = create_road_segments(edge_lanes_list)
   
@@ -361,18 +405,18 @@ if __name__ == "__main__":
   title = ax.text(20.0, -20.0, "", va="center")
 
 #  img = Image.open(png_infilename)
-#  img = img.crop((212, 176, 761, 574))#(left, upper, right, lower)
-#  img = img.resize((2137, 1553), Image.ANTIALIAS) #(width, heigth)
-#  img = ImageOps.flip(img) #上下反転
+  #img = img.crop((212, 176, 761, 574))#(left, upper, right, lower)
+  #img = img.resize((2137, 1553), Image.ANTIALIAS) #(width, heigth)
+  #img = ImageOps.flip(img) #上下反転
 #  img_list = np.asarray(img)
   #plt.imshow(img_list)
   ## draw road network
   draw_road_network(DG)
+
+  #gc.collect()
   
   print("### Start of simulation ###")
   ani = FuncAnimation(fig, animate, frames=range(1000), init_func=init, blit=True, interval= 10)
   #ani.save("grid-sanimation.mp4", writer="ffmpeg")
-
-
 
   plt.show()
