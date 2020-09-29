@@ -11,7 +11,6 @@ from matplotlib.animation import FuncAnimation
 import math
 import copy
 import pprint
-from scipy import stats
 from PIL import Image, ImageOps
 import smopy
 import json
@@ -35,9 +34,8 @@ infilename = "grid5x5.net.xml"
 opportunistic_communication_frag = True
 
 #number_of_cars = 1000
-number_of_cars = 300
+number_of_cars = 200
 #number_of_cars = 50
-#number_of_obstacles = 5
 number_of_obstacles = 30
 
 sensitivity = 1.0
@@ -50,44 +48,6 @@ def read_parse_netxml(infilename):
   root = ET.fromstring(infile.read())
   #print(root.tag, root.attrib)
   return root
-
-##サンフランシスコ用
-#def get_map_smopy():
-#  infile = open(filename_geojson, "r")
-#  data_dic = json.load(infile)
-#
-#  max_lon = -180.0; min_lon = 180.0
-#  max_lat = -90.0; min_lat = 90.0
-#  for l in data_dic["features"][0]["geometry"]["coordinates"][0]:
-#    #print(l)
-#    if max_lon < float(l[0]):
-#      max_lon = float(l[0])
-#    if max_lat < float(l[1]):
-#      max_lat = float(l[1])
-#    if min_lon > float(l[0]):
-#      min_lon = float(l[0])
-#    if min_lat > float(l[1]):
-#      min_lat = float(l[1])
-#
-#  lon_lat_tuple = (min_lat, min_lon, max_lat, max_lon)
-#  print(lon_lat_tuple)
-#
-#  z=17
-#  smopy_map = smopy.Map(lon_lat_tuple, tileserver="https://tile.openstreetmap.org/{z}/{x}/{y}.png", tilesize=256, maxtiles=16, z=z)
-#  #smopy_map = smopy.Map(lon_lat_tuple, tileserver="http://a.tile.stamen.com/toner/{z}/{x}/{y}.png" ,tilesize=256, maxtiles=16, z=z)
-#  print("got map")
-#
-#  px_min_lon, px_min_lat = smopy_map.to_pixels( lat=lon_lat_tuple[0], lon=lon_lat_tuple[1] )
-#  px_max_lon, px_max_lat = smopy_map.to_pixels( lat=lon_lat_tuple[2], lon=lon_lat_tuple[3] )
-#
-#  x0 = min(px_max_lon, px_min_lon)
-#  x1 = max(px_max_lon, px_min_lon)
-#  y0 = min(px_max_lat, px_min_lat)
-#  y1 = max(px_max_lat, px_min_lat)
-#
-#  smopy_map.save_png(png_infilename)
-#
-#  return smopy_map, x0, x1, y0, y1, lon_lat_tuple
 
 def create_road_network(root):
   # read edge tagged data for reading the road network
@@ -214,13 +174,14 @@ def init():
 # main of animation update
 def animate(time):
   global xdata,ydata,obstacle_x,obstacle_y
-  global goal_time_list, number_of_shortest_path_changes_list, number_of_opportunistic_communication_list, moving_distance_list
+  global goal_time_list, number_of_shortest_path_changes_list, number_of_opportunistic_communication_list, moving_distance_list, time_list
 
 
   xdata = []; ydata=[]
 
   for car in cars_list:
     if car.__class__.__name__ == 'Car':
+      time_list.append(time)
       x_new, y_new, goal_arrived_flag, car_forward_pt, diff_dist = car.move(edges_cars_dic, sensitivity, lane_dic, edge_length_dic)
 
       # update x_new and y_new
@@ -237,7 +198,7 @@ def animate(time):
 
       # TODO: if the car encounters road closure, it U-turns.
       if car_forward_pt.__class__.__name__ != "Car" and diff_dist <= 20 :
-        #print("U_turn start!")
+        print("U_turn start!")
         x_new, y_new = car.U_turn(edges_cars_dic, lane_dic, edge_lanes_list, x_y_dic, obstacle_node_id_list)
 
       xdata.append(x_new)
@@ -246,7 +207,7 @@ def animate(time):
       #対向車線に車両があるとき、車両の持っている障害物の情報を渡す。
 
       if opportunistic_communication_frag == True: #すれ違い機能のON/OFF (35行目)
-        if len(cars_list) >= number_of_cars/2: #途中ですれ違い機能の切り替え用(50%がゴールしたらすれ違いなし)
+        #if len(cars_list) >= number_of_cars/2: #途中ですれ違い機能の切り替え用(50%がゴールしたらすれ違いなし)
           for i in range(len(edge_lanes_list) - 1):
             for j in range(i + 1, len(edge_lanes_list)):
               if edge_lanes_list[i].from_id == edge_lanes_list[j].to_id and edge_lanes_list[i].to_id == edge_lanes_list[j].from_id:
@@ -259,7 +220,7 @@ def animate(time):
             if oncoming_car.__class__.__name__ =="Car" and len(oncoming_car.obstacles_info_list) >= 1:
               for i in oncoming_car.obstacles_info_list:
                 if i not in car.obstacles_info_list:
-                  #print("すれ違い通信開始")
+                  print("すれ違い通信開始")
                   car.number_of_opportunistic_communication += 1
                   car.obstacles_info_list.append(i)
                   a = x_y_dic[(edge_lanes_list[lane_dic[car.obstacles_info_list[-1]]].node_x_list[0],edge_lanes_list[lane_dic[car.obstacles_info_list[-1]]].node_y_list[0])]
@@ -300,7 +261,7 @@ def animate(time):
     #print("すれ違い通信回数"+str(number_of_opportunistic_communication_list))
     #print("ゴールタイム"+str(goal_time_list))
     #print("総移動距離"+str(moving_distance_list))
-    with open("結果.txt", 'w') as f:
+    with open("result.txt", 'w') as f:
       f.write("経路変更回数"+str(number_of_shortest_path_changes_list)+"\n")
       f.write ("すれ違い通信回数"+str(number_of_opportunistic_communication_list)+"\n")
       f.write("ゴールタイム"+str(goal_time_list)+"\n")
@@ -308,6 +269,28 @@ def animate(time):
 
     print("Total simulation step: "+str(time-1))
     print("### End of simulation ###")
+    plt.clf()
+
+    plt.hist(moving_distance_list, bins=50, rwidth=0.9)
+    # plt.show()
+    plt.savefig("総移動距離.png")
+    plt.clf()
+
+    plt.hist(goal_time_list, bins=50, rwidth=0.9)
+    # plt.show()
+    plt.savefig("ゴールタイム.png")
+    plt.clf()
+
+    plt.hist(number_of_opportunistic_communication_list, bins=50, rwidth=0.9)
+    # plt.show()
+    plt.savefig("すれ違い数.png")
+    plt.clf()
+
+    plt.hist(number_of_shortest_path_changes_list, bins=50, rwidth=0.9)
+    # plt.show()
+    plt.savefig("経路変更数.png")
+    plt.clf()
+
     sys.exit(0) # end of simulation, exit.
 
   line1.set_data(xdata, ydata)
@@ -324,12 +307,11 @@ def V(b, current_max_speed):
 if __name__ == "__main__":
   # root: xml tree of input file 
   root = read_parse_netxml(infilename)
-  #smopy_map, x0, x1, y0, y1, lon_lat_tuple = get_map_smopy() #サンフランシスコ用
   # x_y_dic: node's x,y pos --> node id
   # DG: Directed graph of road network
   # edge_lanes_list: list of lane instances
   x_y_dic, lane_dic, edge_length_dic, DG, edge_lanes_list = create_road_network(root)
-
+  #print(lane_dic)
   # road_segments_list: list of road segment instances
   road_segments_list = create_road_segments(edge_lanes_list)
   
@@ -337,7 +319,6 @@ if __name__ == "__main__":
   edges_all_list = DG.edges()
   edges_cars_dic = {}
   edges_obstacles_dic = {}
-  edges_fires_dic = {}
 
   for item in edges_all_list:
     edges_obstacles_dic[ item ] = []
@@ -351,7 +332,8 @@ if __name__ == "__main__":
   goal_time_list = []  # 移動完了時間リスト
   number_of_shortest_path_changes_list = []  # 経路変更数リスト
   number_of_opportunistic_communication_list = []  # すれ違い通信数リスト
-  moving_distance_list = [] #総移動距離リスト
+  moving_distance_list = []#総移動距離リスト
+  time_list = []
 
 
   #edges_all_list = DG.edges()
@@ -381,6 +363,7 @@ if __name__ == "__main__":
         break
       except Exception:
         origin_lane_id, destination_lane_id, origin_node_id, destination_node_id = find_OD_node_and_lane()
+
     shortest_path = nx.dijkstra_path(DG, origin_node_id, destination_node_id)
     car = Car(origin_node_id, destination_node_id, destination_lane_id, shortest_path, origin_lane_id, DG)
     car.init(DG)  # initialization of car settings
@@ -400,23 +383,19 @@ if __name__ == "__main__":
     obstacle_x.append(obstacles_list[i].current_position[0])
     obstacle_y.append(obstacles_list[i].current_position[1])
 
-  line1, = plt.plot([], [], color="green", marker="s", linestyle="", markersize=3)
-  line2, = plt.plot([], [], color="red", marker="s", linestyle="", markersize=4)
+  line1, = plt.plot([], [], color="green", marker="s", linestyle="", markersize=5)
+  line2, = plt.plot([], [], color="red", marker="s", linestyle="", markersize=10)
   title = ax.text(20.0, -20.0, "", va="center")
 
-#  img = Image.open(png_infilename)
-  #img = img.crop((212, 176, 761, 574))#(left, upper, right, lower)
-  #img = img.resize((2137, 1553), Image.ANTIALIAS) #(width, heigth)
-  #img = ImageOps.flip(img) #上下反転
-#  img_list = np.asarray(img)
+  #img = Image.open(png_infilename)
+  #img_list = np.asarray(img)
   #plt.imshow(img_list)
   ## draw road network
   draw_road_network(DG)
 
-  #gc.collect()
+  gc.collect()
   
   print("### Start of simulation ###")
-  ani = FuncAnimation(fig, animate, frames=range(1000), init_func=init, blit=True, interval= 10)
+  ani = FuncAnimation(fig, animate, frames=range(1000), init_func=init, blit=True, interval= 50)
   #ani.save("grid-sanimation.mp4", writer="ffmpeg")
-
   plt.show()
