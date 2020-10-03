@@ -10,11 +10,8 @@ import numpy as np
 from matplotlib.animation import FuncAnimation
 import math
 import copy
-import pprint
-from PIL import Image, ImageOps
-import smopy
-import json
-import gc
+from scipy import stats
+import csv
 
 from car import Car
 from lane import Lane
@@ -27,17 +24,30 @@ infilename = "grid5x5.net.xml"
 #infilename = "tsudanuma.net.xml"
 #infilename = "sfc_small.net.xml"
 
-#png_infilename = "tsudanuma2-osm.png"
-#png_infilename = "sanfrancisco.png"
-#filename_geojson = "sfc_small.geojson"
+#opportunistic_communication_frag = True
 
-opportunistic_communication_frag = True
+#input parameters
+input_list = sys.argv[1:]
+if len(input_list) == 3:
+  number_of_cars = int(input_list[0])
+  number_of_obstacles = int(input_list[1])
+  oppcomm_rate = float(input_list[2])
+  print("# of cars:", number_of_cars)
+  print("# of obstacles:", number_of_obstacles)
+  print("rate of cars doing opportunistic communication:", oppcomm_rate)
 
-#number_of_cars = 1000
-number_of_cars = 200
+else:
+  print("usage: python3 simulator.py <# of cars> <# of obstacles> <opp. comm. rate>")
+  print("For example, you can run the program as follows.")
+  print("---")
+  print("python3 simulator.py 50 20 0.5")
+  print("---")
+  print("exit.")
+  sys.exit(1)
+
 #number_of_cars = 50
-number_of_obstacles = 30
-
+#number_of_obstacles = 20
+#oppcomm_rate = 0.5
 sensitivity = 1.0
 # functions
 def read_parse_netxml(infilename):
@@ -177,6 +187,7 @@ def animate(time):
   global goal_time_list, number_of_shortest_path_changes_list, number_of_opportunistic_communication_list, moving_distance_list, time_list
 
 
+
   xdata = []; ydata=[]
 
   for car in cars_list:
@@ -190,15 +201,15 @@ def animate(time):
 
       # remove arrived cars from the list
       if car.goal_arrived == True:
-        number_of_shortest_path_changes_list.append(car.number_of_shortest_path_changes)
-        number_of_opportunistic_communication_list.append(car.number_of_opportunistic_communication)
-        goal_time_list.append(car.elapsed_time)
-        moving_distance_list.append(round(car.moving_distance,1))
-        cars_list.remove( car )
+          number_of_shortest_path_changes_list.append(car.number_of_shortest_path_changes)
+          number_of_opportunistic_communication_list.append(car.number_of_opportunistic_communication)
+          goal_time_list.append(car.elapsed_time)
+          moving_distance_list.append(round(car.moving_distance,1))
+          cars_list.remove( car )
 
       # TODO: if the car encounters road closure, it U-turns.
       if car_forward_pt.__class__.__name__ != "Car" and diff_dist <= 20 :
-        print("U_turn start!")
+        #print("U_turn start!")
         x_new, y_new = car.U_turn(edges_cars_dic, lane_dic, edge_lanes_list, x_y_dic, obstacle_node_id_list)
 
       xdata.append(x_new)
@@ -206,8 +217,7 @@ def animate(time):
       #対向車線を決定 oc = oncoming = 対向
       #対向車線に車両があるとき、車両の持っている障害物の情報を渡す。
 
-      if opportunistic_communication_frag == True: #すれ違い機能のON/OFF (35行目)
-        #if len(cars_list) >= number_of_cars/2: #途中ですれ違い機能の切り替え用(50%がゴールしたらすれ違いなし)
+      if car.opportunistic_communication_frag == True: #すれ違い機能のON/OFF (35行目)
           for i in range(len(edge_lanes_list) - 1):
             for j in range(i + 1, len(edge_lanes_list)):
               if edge_lanes_list[i].from_id == edge_lanes_list[j].to_id and edge_lanes_list[i].to_id == edge_lanes_list[j].from_id:
@@ -217,10 +227,10 @@ def animate(time):
                   oc_lane = edge_lanes_list[i]
 
           for oncoming_car in edges_cars_dic[(x_y_dic[(oc_lane.node_x_list[0], oc_lane.node_y_list[0])],x_y_dic[(oc_lane.node_x_list[1], oc_lane.node_y_list[1])])]:
-            if oncoming_car.__class__.__name__ =="Car" and len(oncoming_car.obstacles_info_list) >= 1:
+            if oncoming_car.__class__.__name__ =="Car" and len(oncoming_car.obstacles_info_list) >= 1 and oncoming_car.opportunistic_communication_frag == True:
               for i in oncoming_car.obstacles_info_list:
                 if i not in car.obstacles_info_list:
-                  print("すれ違い通信開始")
+                  #print("すれ違い通信開始")
                   car.number_of_opportunistic_communication += 1
                   car.obstacles_info_list.append(i)
                   a = x_y_dic[(edge_lanes_list[lane_dic[car.obstacles_info_list[-1]]].node_x_list[0],edge_lanes_list[lane_dic[car.obstacles_info_list[-1]]].node_y_list[0])]
@@ -261,40 +271,45 @@ def animate(time):
     #print("すれ違い通信回数"+str(number_of_opportunistic_communication_list))
     #print("ゴールタイム"+str(goal_time_list))
     #print("総移動距離"+str(moving_distance_list))
-    with open("result.txt", 'w') as f:
-      f.write("経路変更回数"+str(number_of_shortest_path_changes_list)+"\n")
-      f.write ("すれ違い通信回数"+str(number_of_opportunistic_communication_list)+"\n")
-      f.write("ゴールタイム"+str(goal_time_list)+"\n")
-      f.write("総移動距離" + str(moving_distance_list) + "\n")
 
-    print("Total simulation step: "+str(time-1))
+    print("Total simulation step: " + str(time - 1))
     print("### End of simulation ###")
     plt.clf()
 
-    plt.hist(moving_distance_list, bins=50, rwidth=0.9)
+    plt.hist(moving_distance_list, bins=50, rwidth=0.9, color='b')
     # plt.show()
     plt.savefig("総移動距離.png")
     plt.clf()
 
-    plt.hist(goal_time_list, bins=50, rwidth=0.9)
+    plt.hist(goal_time_list, bins=50, rwidth=0.9, color='b')
     # plt.show()
     plt.savefig("ゴールタイム.png")
     plt.clf()
 
-    plt.hist(number_of_opportunistic_communication_list, bins=50, rwidth=0.9)
+    plt.hist(number_of_opportunistic_communication_list, bins=50,rwidth=0.9, color='b')
     # plt.show()
     plt.savefig("すれ違い数.png")
     plt.clf()
 
-    plt.hist(number_of_shortest_path_changes_list, bins=50, rwidth=0.9)
+    plt.hist(number_of_shortest_path_changes_list, bins=50, rwidth=0.9,color='b')
     # plt.show()
     plt.savefig("経路変更数.png")
     plt.clf()
 
+    file = open('result.csv', 'w', newline='')
+    writer = csv.writer(file)
+    writer.writerow(["経路変更数", "すれ違い数", "ゴールタイム", "移動距離"])
+    for i in range(number_of_cars):
+      writer.writerow([number_of_shortest_path_changes_list[i], number_of_opportunistic_communication_list[i], goal_time_list[i], moving_distance_list[i] ])
+    writer.writerow("")
+    writer.writerow(["平均経路変更回数", "平均すれ違い通信回数", "平均ゴールタイム", "平均移動距離"])
+    writer.writerow([sum(number_of_shortest_path_changes_list) / len(number_of_shortest_path_changes_list), sum(number_of_opportunistic_communication_list) / len(number_of_opportunistic_communication_list), sum(goal_time_list) / len(goal_time_list), sum(moving_distance_list) / len(moving_distance_list)])
+
     sys.exit(0) # end of simulation, exit.
 
+
   line1.set_data(xdata, ydata)
-  line2.set_data(obstacle_x,obstacle_y)
+  line2.set_data(obstacle_x, obstacle_y)
   title.set_text("Simulation step: " + str(time) + ";  # of cars: " + str(len(cars_list) - number_of_obstacles))
 
   return line1, line2, title,
@@ -305,7 +320,8 @@ def V(b, current_max_speed):
 
 ##### main #####
 if __name__ == "__main__":
-  # root: xml tree of input file 
+  #print(opportunistic_communication_frag)
+  # root: xml tree of input file
   root = read_parse_netxml(infilename)
   # x_y_dic: node's x,y pos --> node id
   # DG: Directed graph of road network
@@ -314,7 +330,7 @@ if __name__ == "__main__":
   #print(lane_dic)
   # road_segments_list: list of road segment instances
   road_segments_list = create_road_segments(edge_lanes_list)
-  
+
   # create cars
   edges_all_list = DG.edges()
   edges_cars_dic = {}
@@ -329,12 +345,12 @@ if __name__ == "__main__":
   obstacle_node_id_list = []
   pair_node_id_list = []
   cars_list = []
-  goal_time_list = []  # 移動完了時間リスト
-  number_of_shortest_path_changes_list = []  # 経路変更数リスト
-  number_of_opportunistic_communication_list = []  # すれ違い通信数リスト
+
+  goal_time_list = [] # 移動完了時間リスト
+  number_of_shortest_path_changes_list = [] # 経路変更数リスト
+  number_of_opportunistic_communication_list = [] # すれ違い通信数リスト
   moving_distance_list = []#総移動距離リスト
   time_list = []
-
 
   #edges_all_list = DG.edges()
   #create obstacles
@@ -369,6 +385,8 @@ if __name__ == "__main__":
     car.init(DG)  # initialization of car settings
     cars_list.append(car)
     edges_cars_dic[(edge_lanes_list[origin_lane_id].node_id_list[0], edge_lanes_list[origin_lane_id].node_id_list[1])].append(car)
+    if oppcomm_rate * number_of_cars < i: #車両の割合ですれ違いのフラグのon/off
+      car.opportunistic_communication_frag = False
 
 
 
@@ -384,7 +402,7 @@ if __name__ == "__main__":
     obstacle_y.append(obstacles_list[i].current_position[1])
 
   line1, = plt.plot([], [], color="green", marker="s", linestyle="", markersize=5)
-  line2, = plt.plot([], [], color="red", marker="s", linestyle="", markersize=10)
+  line2, = plt.plot([], [], color="red", marker="s", linestyle="", markersize=5)
   title = ax.text(20.0, -20.0, "", va="center")
 
   #img = Image.open(png_infilename)
@@ -393,9 +411,8 @@ if __name__ == "__main__":
   ## draw road network
   draw_road_network(DG)
 
-  gc.collect()
-  
+
   print("### Start of simulation ###")
-  ani = FuncAnimation(fig, animate, frames=range(1000), init_func=init, blit=True, interval= 50)
+  ani = FuncAnimation(fig, animate, frames=range(1000), init_func=init, blit=True, interval= 10)
   #ani.save("grid-sanimation.mp4", writer="ffmpeg")
   plt.show()

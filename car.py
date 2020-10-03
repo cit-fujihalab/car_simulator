@@ -24,6 +24,7 @@ class Car:
     self.moving_distance = 0
     self.goal_arrived = False
     self.DG_copied = copy.deepcopy(DG)
+    self.opportunistic_communication_frag = True
 
   def init(self, DG):
     current_start_node_id = self.shortest_path[ self.current_sp_index ]
@@ -210,7 +211,7 @@ class Car:
     self.current_max_speed = current_edge_attributes["speed"]
     self.current_distance = current_edge_attributes["weight"]
     edges_cars_dic[(current_start_node_id, current_end_node_id)].append(self)
-    print('U_turn end!')
+   # print('U_turn end!')
 
     return x_new, y_new
 
