@@ -278,31 +278,31 @@ def animate(time):
 
     plt.hist(moving_distance_list, bins=50, rwidth=0.9, color='b')
     # plt.show()
-    plt.savefig("総移動距離.png")
+    plt.savefig("総移動距離"+str(number_of_cars)+'-'+str(number_of_obstacles)+'-'+str(oppcomm_rate)+".png")
     plt.clf()
 
     plt.hist(goal_time_list, bins=50, rwidth=0.9, color='b')
     # plt.show()
-    plt.savefig("ゴールタイム.png")
+    plt.savefig("ゴールタイム"+str(number_of_cars)+'-'+str(number_of_obstacles)+'-'+str(oppcomm_rate)+".png")
     plt.clf()
 
     plt.hist(number_of_opportunistic_communication_list, bins=50,rwidth=0.9, color='b')
     # plt.show()
-    plt.savefig("すれ違い数.png")
+    plt.savefig("すれ違い数"+str(number_of_cars)+'-'+str(number_of_obstacles)+'-'+str(oppcomm_rate)+".png")
     plt.clf()
 
     plt.hist(number_of_shortest_path_changes_list, bins=50, rwidth=0.9,color='b')
     # plt.show()
-    plt.savefig("経路変更数.png")
+    plt.savefig("経路変更数"+str(number_of_cars)+'-'+str(number_of_obstacles)+'-'+str(oppcomm_rate)+".png")
     plt.clf()
 
-    file = open('result.csv', 'w', newline='')
+    file = open('result-'+str(number_of_cars)+'-'+str(number_of_obstacles)+'-'+str(oppcomm_rate)+'.csv', 'w', newline='')
     writer = csv.writer(file)
     writer.writerow(["経路変更数", "すれ違い数", "ゴールタイム", "移動距離"])
     for i in range(number_of_cars):
       writer.writerow([number_of_shortest_path_changes_list[i], number_of_opportunistic_communication_list[i], goal_time_list[i], moving_distance_list[i] ])
-    writer.writerow("")
-    writer.writerow(["平均経路変更回数", "平均すれ違い通信回数", "平均ゴールタイム", "平均移動距離"])
+    #writer.writerow("")
+    writer.writerow(["#平均経路変更回数", "平均すれ違い通信回数", "平均ゴールタイム", "平均移動距離"])
     writer.writerow([sum(number_of_shortest_path_changes_list) / len(number_of_shortest_path_changes_list), sum(number_of_opportunistic_communication_list) / len(number_of_opportunistic_communication_list), sum(goal_time_list) / len(goal_time_list), sum(moving_distance_list) / len(moving_distance_list)])
 
     sys.exit(0) # end of simulation, exit.
